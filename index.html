@@ -1,0 +1,1172 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AT-Tool">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<script>window.AT_STANDALONE=true</script>
+<title>AT-Tool Unterricht</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&display=swap">
+<style>
+/* Layout: sticky Werkzeugleiste über einem skalierten Klassenraum (Tafel oben), Ansichten wechseln an Ort und Stelle */
+:root{
+  --bg:#edf1f0; --surface:#ffffff; --surface-2:#f4f7f6; --line:#cbd5d2; --fg:#1b2828; --muted:#5a6b68;
+  --accent:#22567a; --accent-fg:#ffffff; --board:#2e4a3e; --board-fg:#e4eee8;
+  --seat:#ffffff; --good:#2e9a54; --bad:#cf3e35; --warn:#b9761a; --absent:#dfe5e3; --on-color:#ffffff;
+  --win:#d4eaf6; --win-2:#9cc6de; --win-fg:#22506d; --door:#ecdcc4; --door-line:#c4a173; --door-fg:#6b4a22;
+  --font-ui:"Atkinson Hyperlegible",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --font-display:"Bricolage Grotesque","Atkinson Hyperlegible",-apple-system,system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121a1a; --surface:#1b2525; --surface-2:#222d2d; --line:#344341; --fg:#e3ebe9; --muted:#97a9a6;
+  --accent:#80b6dc; --accent-fg:#0d1a23; --board:#21372d; --board-fg:#cfe1d6;
+  --seat:#243030; --good:#3dbd6a; --bad:#ec5a4f; --warn:#e2a445; --absent:#2a3434; --on-color:#ffffff; --win:#1d3746; --win-2:#33607a; --win-fg:#a9d4ee; --door:#3b3024; --door-line:#6e5538; --door-fg:#e2c49b; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#121a1a; --surface:#1b2525; --surface-2:#222d2d; --line:#344341; --fg:#e3ebe9; --muted:#97a9a6;
+  --accent:#80b6dc; --accent-fg:#0d1a23; --board:#21372d; --board-fg:#cfe1d6;
+  --seat:#243030; --good:#3dbd6a; --bad:#ec5a4f; --warn:#e2a445; --absent:#2a3434; --on-color:#ffffff; --win:#1d3746; --win-2:#33607a; --win-fg:#a9d4ee; --door:#3b3024; --door-line:#6e5538; --door-fg:#e2c49b; color-scheme:dark }
+
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{color:var(--fg);font-family:var(--font-ui);font-size:15px;line-height:1.4;-webkit-text-size-adjust:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0}
+h2{font-size:20px}
+h3{font-size:16px}
+.muted{color:var(--muted)}
+
+/* Werkzeugleiste */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line);
+  padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:6px;align-self:center}
+.logo{width:36px;height:36px;border-radius:9px;background:var(--board);color:var(--board-fg);display:grid;place-items:center;font-family:var(--font-display);font-weight:700;letter-spacing:.04em}
+.brand-t{display:flex;flex-direction:column;line-height:1.1}
+.brand-t b{font-family:var(--font-display);font-size:17px}
+.brand-t small{color:var(--muted);font-size:12px}
+.fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fld>span{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.fld.grow{flex:1 1 160px}
+select,input[type=text],input[type=time],input[type=date],input:not([type]),textarea{
+  min-height:38px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);padding:6px 10px;font-size:16px;max-width:100%}
+textarea{resize:vertical;width:100%}
+.lesson{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;flex:1 1 360px;min-width:0}
+.chip{min-height:38px;display:inline-flex;align-items:center;padding:0 12px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.btn{min-height:38px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);font-weight:700;white-space:nowrap}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+.btn.danger{color:var(--bad)}
+.btn.armed{background:var(--bad);color:var(--on-color);border-color:transparent}
+.btn:disabled{opacity:.5;cursor:default}
+.tabs{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+.tabs button{border:0;background:transparent;min-height:32px;padding:0 14px;border-radius:7px;font-weight:700;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgb(0 0 0 / .12)}
+
+main{padding-block:14px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.planbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}
+.planbar.end{align-items:flex-end}
+.planbar.end .muted{min-height:38px;display:inline-flex;align-items:center}
+.planbar .stat{flex:1 1 200px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.planbar .stat b{color:var(--fg)}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:color-mix(in oklab,var(--warn) 16%,var(--surface));border:1px solid color-mix(in oklab,var(--warn) 45%,var(--line));margin-bottom:12px}
+.banner p{margin:0;flex:1 1 240px}
+.addbox{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;width:100%;padding:12px;border:1px dashed var(--line);border-radius:10px;background:var(--surface)}
+.addbox .fld{flex:1 1 260px}
+
+/* Klassenraum */
+#room{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);max-width:100%}
+#room.editing{background-image:radial-gradient(color-mix(in oklab,var(--muted) 35%,transparent) 1px,transparent 1.2px);background-size:calc(16px * var(--s,1)) calc(16px * var(--s,1))}
+#stage{position:absolute;left:0;top:0;width:1280px;transform-origin:0 0}
+.board{position:absolute;width:440px;height:32px;border-radius:5px;background:var(--board);color:var(--board-fg);display:grid;place-items:center;font-family:var(--font-display);font-size:13px;letter-spacing:.3em;text-transform:uppercase}
+.board.movable{cursor:grab;outline:2px dashed var(--accent);outline-offset:3px;touch-action:none;z-index:4}
+.fx{position:absolute;display:grid;place-items:center;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;user-select:none;-webkit-user-select:none;z-index:1;overflow:hidden}
+.fx-window{background:repeating-linear-gradient(90deg,var(--win) 0 22px,var(--win-2) 22px 24px);color:var(--win-fg);border:1.5px solid var(--win-2)}
+.fx-window.vert{background:repeating-linear-gradient(180deg,var(--win) 0 22px,var(--win-2) 22px 24px)}
+.fx-door{background:var(--door);color:var(--door-fg);border:1.5px solid var(--door-line);border-radius:4px 4px 14px 4px}
+.fx.vert span{writing-mode:vertical-rl}
+.fx span{background:inherit;padding:0 4px;border-radius:3px}
+.fx.movable{cursor:grab;outline:2px dashed var(--accent);outline-offset:2px;touch-action:none;z-index:4}
+#stage.flipped>*{transform:rotate(180deg)}
+.empty{position:absolute;left:0;right:0;top:120px;text-align:center;color:var(--muted);font-size:18px;padding:0 40px}
+
+.seat{position:absolute;width:144px;height:104px;border-radius:12px;background:var(--seat);border:1.5px solid var(--line);
+  padding:6px;display:flex;flex-direction:column;gap:5px;color:var(--fg);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:background-color .25s}
+.seat.tinted{background:color-mix(in oklab,var(--seat),var(--tint) var(--pct))}
+.seat.strong{color:var(--on-color);border-color:transparent}
+.seat .top{display:flex;align-items:center;gap:4px;min-height:26px}
+.seat .name{flex:1;min-width:0;font-family:var(--font-display);font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:2px}
+.att{position:relative;flex:none;width:26px;height:26px;border-radius:7px;border:1px solid color-mix(in oklab,currentColor 30%,transparent);background:transparent;font-weight:700;font-size:13px;padding:0}
+.att.on{background:var(--fg);color:var(--bg);border-color:transparent}
+.late{flex:none;font-size:11px;font-weight:700;padding:1px 6px;border-radius:99px;background:var(--warn);color:var(--on-color);font-variant-numeric:tabular-nums}
+.counters{flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;gap:4px}
+.cb{position:relative;display:flex;align-items:center;justify-content:center;gap:3px;padding:0;border-radius:8px;
+  border:1px solid color-mix(in oklab,currentColor 18%,transparent);background:color-mix(in oklab,var(--surface) 55%,transparent)}
+.cb.pos{box-shadow:inset 0 -3px 0 color-mix(in oklab,var(--good) 75%,transparent)}
+.cb.neg{box-shadow:inset 0 -3px 0 color-mix(in oklab,var(--bad) 75%,transparent)}
+.seat.strong .cb{background:rgb(0 0 0 / .14);border-color:rgb(255 255 255 / .25)}
+.cb .ic{width:17px;height:17px;flex:none}
+.cb .n{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.cb.zero .n{display:none}
+.cb.zero .ic{opacity:.5}
+.cb.pend,.att.pend,.here.pend{outline:2px solid var(--accent);outline-offset:-2px}
+.ring{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;pointer-events:none;overflow:visible;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke:var(--accent);stroke-width:3.5;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:100;animation-name:closeRing;animation-timing-function:linear;animation-fill-mode:forwards}
+.seat.strong .ring circle{stroke:var(--on-color)}
+@keyframes closeRing{to{stroke-dashoffset:0}}
+.seat.absent{background:repeating-linear-gradient(135deg,var(--absent) 0 8px,var(--surface-2) 8px 16px);color:var(--muted)}
+.seat.absent .name{text-decoration:line-through;text-decoration-thickness:1.5px}
+.absrow{flex:1;display:flex;flex-direction:column;gap:4px}
+.absrow small{font-size:12px;font-weight:700}
+.here{position:relative;flex:1;border-radius:9px;border:0;background:var(--accent);color:var(--accent-fg);font-weight:700;font-size:15px}
+.seat.disabled .counters,.seat.disabled .att{opacity:.45;pointer-events:none}
+.seat.editing{cursor:grab;border-style:dashed;border-color:var(--accent);touch-action:none;justify-content:center;align-items:center;text-align:center}
+.seat.editing .name{flex:none;font-size:16px;white-space:normal}
+.seat.editing small{color:var(--muted);font-size:12px}
+.seat.dragging{cursor:grabbing;z-index:5;box-shadow:0 8px 20px rgb(0 0 0 / .22)}
+
+.doc{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.dhead{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.dhead .muted{font-size:13px;font-variant-numeric:tabular-nums}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:10px 14px}
+.dgrid select,.dgrid input{width:100%}
+.cards.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))}
+.plist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.pi{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.pi:last-child{border-bottom:0}
+.pi .grow{flex:1 1 200px;min-width:0}
+.pi.done .pn{background:var(--good);color:var(--on-color);border-color:transparent}
+.pi.next{background:color-mix(in oklab,var(--accent) 10%,var(--surface))}
+.pi.next .pn{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+.pn{flex:none;width:28px;height:28px;border-radius:99px;border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.pmeta{flex:0 1 150px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.3}
+.pbtn{display:flex;gap:4px}
+.pbtn .btn{min-height:34px;padding:0 10px}
+.rrow{background:var(--seat);border:1.5px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px;transition:background-color .25s}
+.rrow.tinted{background:color-mix(in oklab,var(--seat),var(--tint) var(--pct))}
+.rrow.strong{color:var(--on-color);border-color:transparent}
+.rrow.strong .cb{background:rgb(0 0 0 / .14);border-color:rgb(255 255 255 / .25)}
+.rrow.absent{background:repeating-linear-gradient(135deg,var(--absent) 0 8px,var(--surface-2) 8px 16px);color:var(--muted)}
+.rrow.absent .name{text-decoration:line-through}
+.rrow.disabled .rcnt,.rrow.disabled .att{opacity:.45;pointer-events:none}
+.rrow .top{display:flex;align-items:center;gap:8px}
+.rrow .name{flex:1;min-width:0;font-family:var(--font-display);font-weight:700;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rrow .att{width:40px;height:36px;font-size:15px;border-radius:9px}
+.rcnt{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.rcnt .cb{height:46px;gap:4px}
+.rcnt .cb .ic{width:20px;height:20px}
+.rcnt .cb .n{font-size:15px}
+.rabs{display:flex;align-items:center;gap:10px}
+.rabs small{flex:1;font-weight:700}
+.rabs .here{flex:none;min-height:42px;padding:0 18px}
+#rlist{display:flex;flex-direction:column;gap:8px}
+.steps{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:4px;max-width:65ch}
+body.compact .bar{gap:8px 10px;position:static}
+body.compact .brand-t small{display:none}
+body.compact .lesson .fld:has(#lStart){display:none}
+.legend{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.legend h3{margin-bottom:10px}
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:8px 20px}
+.litem{display:flex;align-items:center;gap:10px;min-width:0}
+.lsym{flex:none;width:34px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);display:grid;place-items:center;font-weight:700;font-size:13px}
+.lsym svg{width:18px;height:18px}
+.lsym.pos{box-shadow:inset 0 -3px 0 color-mix(in oklab,var(--good) 75%,transparent)}
+.lsym.neg{box-shadow:inset 0 -3px 0 color-mix(in oklab,var(--bad) 75%,transparent)}
+.lsym.here{background:var(--accent);color:var(--accent-fg);border-color:transparent;font-size:15px}
+.lsym.fx-window{background:repeating-linear-gradient(90deg,var(--win) 0 8px,var(--win-2) 8px 10px);border-color:var(--win-2)}
+.lsym.fx-door{background:var(--door);border-color:var(--door-line);border-radius:4px 4px 12px 4px}
+.lsym.late{width:auto;padding:0 6px;height:20px;border-radius:99px;background:var(--warn);color:var(--on-color);border:0;font-size:11px}
+.ltxt{min-width:0;font-size:14px;line-height:1.25}
+.ltxt small{display:block;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.ltxt .p{color:var(--good);font-weight:700}.ltxt .n{color:var(--bad);font-weight:700}
+.lfoot{margin:12px 0 0;color:var(--muted);font-size:13px;max-width:80ch}
+/* Bearbeiten-Leiste unten */
+.sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;width:min(440px,calc(100% - 32px));
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgb(0 0 0 / .25);padding:14px;display:flex;flex-direction:column;gap:10px}
+.gwbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:12px}
+.gwbox summary{cursor:pointer;padding:12px 14px;font-weight:700;font-family:var(--font-display)}
+.gwin{padding:0 14px 14px;display:flex;flex-direction:column;gap:10px}
+.gw{display:grid;grid-template-columns:repeat(7,minmax(118px,1fr));gap:10px;align-items:end;overflow-x:auto;padding-bottom:4px}
+.gcol{display:flex;flex-direction:column;gap:4px;min-width:0}
+.glab{display:flex;flex-direction:column;justify-content:flex-end;height:2.9em;font-size:12px;font-weight:700;line-height:1.2;color:var(--fg)}
+.glab small{font-weight:400;color:var(--muted);font-size:11px}
+.gcol select{width:100%}
+.gwi{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+.gwi input{width:100%;min-width:0;text-align:center}
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:4px 10px;max-height:38vh;overflow:auto;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}
+.checks label{display:flex;gap:6px;align-items:center;min-height:30px}
+.sheet{max-height:calc(100% - 32px);overflow:auto}
+.sheet .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+
+/* Tabelle */
+.tctl{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;margin-bottom:12px}
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;min-height:32px;padding:0 12px;border-radius:7px;font-weight:700;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgb(0 0 0 / .12)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface)}
+thead th{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;cursor:pointer;vertical-align:bottom}
+thead th[aria-sort]{color:var(--fg)}
+tbody tr:last-child td{border-bottom:0}
+td.z{color:color-mix(in oklab,var(--muted) 60%,transparent)}
+td.arch{color:var(--muted);font-style:italic}
+.note{font-size:13px;color:var(--muted);margin:10px 0 0;max-width:70ch}
+
+/* Daten */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card p{margin:0;max-width:65ch}
+.list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.li{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.li:last-child{border-bottom:0}
+.li.cur{background:color-mix(in oklab,var(--accent) 10%,var(--surface))}
+.li .grow{flex:1 1 160px;min-width:0}
+.li .meta{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.row2{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.warnbox{padding:10px 12px;border-radius:10px;background:color-mix(in oklab,var(--bad) 12%,var(--surface));border:1px solid color-mix(in oklab,var(--bad) 40%,var(--line))}
+
+/* Export-Dialog */
+.overlay{position:fixed;inset:0;z-index:50;background:rgb(0 0 0 / .45);display:grid;place-items:center;
+  padding-block:calc(16px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.dlg{background:var(--surface);border-radius:14px;padding:18px;width:min(560px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.dlg textarea{min-height:140px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.msg{min-height:1.4em;font-size:14px;color:var(--accent)}
+@media (prefers-reduced-motion: reduce){.seat{transition:none}}
+</style>
+
+</head><body>
+<header class="bar">
+  <div class="brand"><span class="logo" aria-hidden="true">AT</span><span class="brand-t"><b>AT-Tool</b><small>Sitzplan &amp; Mitarbeit</small></span></div>
+  <label class="fld"><span>Lerngruppe</span><select id="grp"></select></label>
+  <div class="lesson" id="lessonBox"></div>
+  <nav class="tabs" role="tablist" aria-label="Ansicht">
+    <button role="tab" data-view="plan">Sitzplan</button>
+    <button role="tab" data-view="unit">Planung</button>
+    <button role="tab" data-view="table">Tabelle</button>
+    <button role="tab" data-view="data">Daten</button>
+  </nav>
+</header>
+
+<main>
+  <section id="vPlan">
+    <div id="planTop"></div>
+    <div id="room"><div id="stage"></div></div>
+    <div id="rlist" hidden></div>
+    <div class="doc" id="docPanel"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+  <section id="vUnit" hidden></section>
+  <section id="vTable" hidden></section>
+  <section id="vData" hidden></section>
+</main>
+
+<div id="sheet" class="sheet" hidden></div>
+<div id="overlay" class="overlay" hidden><div class="dlg" id="dlg" role="dialog" aria-modal="true"></div></div>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+
+<script>
+(function(){
+"use strict";
+/* ---------- Grundlagen ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+const pad=n=>String(n).padStart(2,'0');
+const dstr=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const todayStr=()=>dstr(new Date());
+const nowHM=()=>{const d=new Date();return `${pad(d.getHours())}:${pad(d.getMinutes())}`};
+const fmtDate=s=>{const [y,m,d]=s.split('-');return `${d}.${m}.${y}`};
+const WD=['So','Mo','Di','Mi','Do','Fr','Sa'];
+const wd=s=>WD[new Date(s+'T12:00:00').getDay()];
+
+const SVG=p=>`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const ICON={
+  m:SVG('<path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-6-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>'),
+  f:SVG('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M7 8h10"/><path d="M7 12h6"/>'),
+  a:SVG('<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>'),
+  s:SVG('<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>'),
+  h:SVG('<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><path d="m9.5 10.5 5 5"/><path d="m14.5 10.5-5 5"/>'),
+  k:SVG('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m14.5 12.5-5 5"/><path d="m9.5 12.5 5 5"/>')
+};
+const KINDS=[
+  {k:'m',label:'Meldung',w:15},
+  {k:'f',label:'Fachsprache',w:30},
+  {k:'a',label:'Aufforderung zur Mitarbeit',w:-15},
+  {k:'s',label:'Störung',w:-45},
+  {k:'h',label:'Hefter vergessen',w:-15},
+  {k:'k',label:'Hausaufgabe vergessen',w:-15}
+];
+const CK=KINDS.map(K=>K.k), CKSET=new Set(CK);
+const cnt=(e,k)=>e&&e.c&&e.c[k]||0;
+const SEAT_W=144, SEAT_H=104, STAGE_W=1280, TOP_Y=64;
+const gridPos=(i,ty=TOP_Y)=>{const c=i%8,r=Math.floor(i/8);return {x:24+c*152+Math.floor(c/2)*12,y:ty+r*118}};
+const BOARD_W=440, BOARD_H=32;
+// Tafel: ohne eigene Position automatisch unter den Sitzen (Lehrkraft steht zwischen Tafel und Klasse)
+function boardPos(g){
+  const lay=g?LY(g):null;
+  if(lay&&lay.board) return lay.board;
+  let maxY=0; if(g) members(g).forEach(s=>{maxY=Math.max(maxY,pos(g,s.id).y+SEAT_H)});
+  return {x:(STAGE_W-BOARD_W)/2,y:maxY?maxY+28:140};
+}
+const topY=g=>{const b=g&&LY(g).board;return (b&&b.y<300)?TOP_Y:20};
+// Sitzpläne: eine Lerngruppe kann mehrere haben (ganze Klasse, Teilungsgruppen, anderer Raum)
+function ensureLayouts(g){
+  if(g.layouts&&g.layouts.length){if(!g.layouts.find(x=>x.id===g.layoutId))g.layoutId=g.layouts[0].id;return}
+  const lay={id:uid(),name:'Ganze Klasse',seats:{},board:g.board||null,fixtures:g.fixtures||[]};
+  g.students.forEach(s=>{if(!s.archived&&s.x!=null)lay.seats[s.id]={x:s.x,y:s.y};delete s.x;delete s.y});
+  delete g.board; delete g.fixtures; g.layouts=[lay]; g.layoutId=lay.id;
+  g.lessons.forEach(l=>{if(!l.layout)l.layout=lay.id});
+}
+
+/* ---------- Speicher ---------- */
+const KEY='attool.v1';
+let S=null, storageOK=true;
+function load(){
+  try{const raw=localStorage.getItem(KEY); if(raw) S=JSON.parse(raw);}catch(e){storageOK=false}
+  if(!S||!Array.isArray(S.groups)) S=seed();
+  S.groups.forEach(ensureLayouts);
+  S.settings=Object.assign({cd:3},S.settings||{});
+  S.active=S.active||{}; S.ui=Object.assign({view:'plan'},S.ui||{});
+  if(!S.groups.find(g=>g.id===S.ui.groupId)) S.ui.groupId=S.groups[0]?S.groups[0].id:null;
+}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(S)); storageOK=true}catch(e){storageOK=false}
+}
+
+function seed(){
+  const names=['Amira','Ben','Clara','Deniz','Elif','Finn','Greta','Hannes','Ida','Jonas','Kemal','Lea','Leon K.','Leon S.','Mia','Noah','Ole','Paula','Rania','Samuel','Tilda','Yusuf','Zoe','Emil'];
+  const g={id:uid(),name:'Beispiel 9b (Beispieldaten)',students:[],lessons:[]};
+  names.forEach((n,i)=>{const p=gridPos(i,20);g.students.push({id:uid(),name:n,x:p.x,y:p.y,since:'2026-08-01'})});
+  ensureLayouts(g); g.layouts[0].name='Ganze Klasse · R 204';
+  const mkLay=(name,list)=>{const lay={id:uid(),name,seats:{},board:null,fixtures:[]};list.forEach((s,i)=>{lay.seats[s.id]=gridPos(i,20)});g.layouts.push(lay);return lay};
+  const la=mkLay('Gruppe A · Informatikraum',g.students.filter((s,i)=>i%2===0));
+  const lb=mkLay('Gruppe B · Informatikraum',g.students.filter((s,i)=>i%2===1));
+  let r=7; const rnd=()=>{r=(r*16807)%2147483647;return r/2147483647};
+  const mk=(date,start,topic,live,lay)=>{
+    const l={id:uid(),date,start,topic,e:{},layout:lay.id,members:Object.keys(lay.seats)};
+    g.students.filter(st=>lay.seats[st.id]).forEach(st=>{
+      const e={st:'p',late:0,c:{m:0,f:0,a:0,s:0,h:0,k:0}};
+      const x=rnd();
+      if(x<.04) e.st='e'; else if(x<.06) e.st='u'; else if(x<.09) e.late=3+Math.floor(rnd()*12);
+      if(e.st==='p'){e.c.m=Math.floor(rnd()*(live?3:5)); e.c.f=rnd()<.35?1:0; e.c.a=rnd()<.2?1:0; e.c.s=rnd()<.12?1:0; e.c.h=rnd()<.08?1:0; e.c.k=rnd()<.12?1:0;}
+      l.e[st.id]=e;
+    });
+    g.lessons.push(l); return l;
+  };
+  const today=new Date(), topics=['Variablen','Bedingungen','Schleifen','Listen','Funktionen','Debugging'];
+  for(let w=6;w>=1;w--){const d=new Date(today);d.setDate(d.getDate()-7*w);const d2=new Date(d);d2.setDate(d.getDate()-2);
+    mk(dstr(d),'08:00',topics[6-w],false,g.layouts[0]); mk(dstr(d2),'10:00',topics[6-w]+' (Praxis)',false,la); mk(dstr(d2),'11:40',topics[6-w]+' (Praxis)',false,lb);}
+  const unit={id:uid(),title:'Programmieren mit Python (Beispiel)',items:[...topics,'Wiederholung und Übung','Rekursion','Projektphase','Lernerfolgskontrolle'].map(t=>({id:uid(),topic:t}))};
+  g.units=[unit]; g.unitId=unit.id;
+  g.lessons.forEach(l=>{const it=unit.items.find(x=>l.topic===x.topic||l.topic===x.topic+' (Praxis)');if(it)l.plan={u:unit.id,i:it.id};
+    if(l.layout===g.layouts[0].id)l.doc='Einstieg mit Codebeispiel, Erarbeitung in Partnerarbeit, Sicherung an der Tafel.'});
+  const cur=mk(todayStr(),'08:00',unit.items[6].topic,true,g.layouts[0]); cur.plan={u:unit.id,i:unit.items[6].id};
+  const s={groups:[g],active:{},settings:{cd:3},ui:{view:'plan',groupId:g.id}};
+  s.active[g.id]=cur.id; return s;
+}
+
+/* ---------- Zugriff ---------- */
+const UI={shift:null,topicOrig:null,fxSel:null,edit:false,mode:'range',from:null,to:null,lessonSel:null,sort:{k:'name',dir:1},editSid:null,importData:null};
+const pending=new Map();
+const G=()=>S.groups.find(g=>g.id===S.ui.groupId)||null;
+const L=(g=G())=>g?(g.lessons.find(l=>l.id===S.active[g.id])||null):null;
+const live=g=>g.students.filter(s=>!s.archived);
+const LY=g=>g.layouts.find(x=>x.id===g.layoutId)||g.layouts[0];
+const members=g=>{const lay=LY(g);return live(g).filter(s=>lay.seats[s.id])};
+const pos=(g,sid)=>LY(g).seats[sid];
+const layName=(g,id)=>{const x=g.layouts.find(y=>y.id===id);return x?x.name:'–'};
+const inLesson=(l,st)=>!l.members||l.members.includes(st.id)||!!l.e[st.id];
+// Teilnehmende einer heutigen Stunde an den aktuellen Sitzplan anpassen
+function syncLesson(g){const l=L(g),lay=LY(g);if(l&&l.layout===lay.id&&l.date===todayStr())l.members=members(g).map(s=>s.id)}
+function entry(l,sid,create=true){let e=l.e[sid];if(!e&&create)e=l.e[sid]={st:'p',late:0,c:{m:0,f:0,a:0,s:0,h:0,k:0}};return e}
+// Aufforderung steigert sich: 1. −15 %, 2. −20 %, 3. −25 %, jede weitere +5 %
+const contrib=(K,n)=>K.k==='a'?-(10*n+2.5*n*(n+1)):n*K.w;
+const score=e=>e?KINDS.reduce((t,K)=>t+contrib(K,cnt(e,K.k)),0):0;
+/* Notenvorschlag pro Stunde: Ausgangsnote, jeder Eintrag verschiebt um seine Gewichtung (in Notenstufen).
+   Verspätung und Störung zählen nicht. */
+const GK=[{k:'m',dir:-1,label:'Meldung',verb:'verbessert'},{k:'f',dir:-1,label:'Fachsprache',verb:'verbessert'},
+  {k:'a',dir:1,label:'Aufforderung zur Mitarbeit',verb:'verschlechtert'},{k:'h',dir:1,label:'Hefter vergessen',verb:'verschlechtert'},{k:'k',dir:1,label:'Hausaufgabe vergessen',verb:'verschlechtert'}];
+const GDEF={base:3,scale:'note',w:{m:0.5,f:1,a:0.5,h:0.5,k:0.5}};
+function GR(g){g.grade=g.grade||JSON.parse(JSON.stringify(GDEF));g.grade.w=Object.assign({},GDEF.w,g.grade.w);return g.grade}
+function gradeOf(g,e){
+  if(!e) e={st:'p',c:{}}; if(e.st!=='p') return null;
+  const G_=GR(g); let v=G_.base; GK.forEach(x=>{v+=x.dir*cnt(e,x.k)*(+G_.w[x.k]||0)});
+  v=Math.max(0.67,Math.min(6,v));
+  const pts=Math.max(0,Math.min(15,Math.round(17-3*v)));
+  let txt;
+  if(G_.scale==='pts') txt=String(pts);
+  else if(pts===0) txt='6';
+  else {const n=Math.ceil((16-pts)/3), r=(16-pts)%3; txt=n+(r===1?'+':r===0?'−':'');} // 15→1+, 14→1, 13→1−
+  return {pts,txt};
+}
+const PTS_LBL=p=>{if(p===0)return '6';const n=Math.ceil((16-p)/3),r=(16-p)%3;return n+(r===1?'+':r===0?'−':'')};
+function gradeForm(g){const gr=GR(g);
+  const baseOpts=Array.from({length:16},(_,k)=>15-k).map(p=>{const v=(17-p)/3;
+    return `<option value="${v}"${Math.abs(gr.base-v)<0.01?' selected':''}>${gr.scale==='pts'?p+' P.':PTS_LBL(p)}</option>`}).join('');
+  const col=(lab,sub,ctrl)=>`<label class="gcol"><span class="glab">${lab}<small>${sub}</small></span>${ctrl}</label>`;
+  return `<p class="muted" style="font-size:14px;margin:0">Jede Stunde startet mit der Ausgangsnote. Jeder Eintrag verschiebt sie um die angegebenen Notenstufen. Eine Tendenz (+ oder −) ist ⅓ Notenstufe, also z. B. 0,33. Verspätung und Störung zählen nicht.</p>
+    <div class="gw">
+      ${col('Skala','&nbsp;',`<select id="gScale"><option value="note"${gr.scale==='note'?' selected':''}>Noten 1+ bis 6</option><option value="pts"${gr.scale==='pts'?' selected':''}>Punkte 15 bis 0</option></select>`)}
+      ${col('Ausgangsnote','&nbsp;',`<select id="gBase">${baseOpts}</select>`)}
+      ${GK.map(x=>col(x.label.replace(' zur Mitarbeit',''),x.verb+' um',`<span class="gwi"><input type="text" inputmode="decimal" data-gw="${x.k}" value="${fmtNum(+(+gr.w[x.k]).toFixed(2))}"><span>Noten</span></span>`)).join('')}
+    </div>
+    <p class="muted" style="font-size:13px;margin:0">Beispiel: Ausgangsnote 3, zwei Meldungen à 0,5 und einmal Fachsprache à 1 ergibt 1. Eine Notenstufe entspricht 3 Punkten.</p>
+    ${S.groups.length>1?'<div class="row2"><button class="btn" data-do="gradeAll">Für alle Lerngruppen übernehmen</button></div>':''}`}
+const numIn=v=>{const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?n:0};
+const fmtNum=n=>String(n).replace('.',',');
+function lateMinutes(l){
+  if(l.date!==todayStr()||!l.start) return 0;
+  const [h,m]=l.start.split(':').map(Number); const st=new Date(); st.setHours(h,m,0,0);
+  return Math.max(0,Math.floor((Date.now()-st.getTime())/60000));
+}
+function halfYear(which){
+  const t=new Date(); const y=t.getMonth()>=7?t.getFullYear():t.getFullYear()-1; // Schuljahr beginnt 1. August
+  return which===1?[`${y}-08-01`,`${y+1}-01-31`]:[`${y+1}-02-01`,`${y+1}-07-31`];
+}
+const currentHalf=()=>{const m=new Date().getMonth();return (m>=7||m===0)?1:2};
+
+/* ---------- Kopfzeile ---------- */
+function renderBar(){
+  const sel=$('#grp');
+  sel.innerHTML=S.groups.length?S.groups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join(''):'<option value="">– keine –</option>';
+  sel.value=S.ui.groupId||'';
+  const g=G(), l=L(g), box=$('#lessonBox');
+  if(!g){box.innerHTML='';}
+  else if(l){
+    box.innerHTML=`<span class="chip">${wd(l.date)} ${fmtDate(l.date)}</span>
+      <label class="fld"><span>Beginn</span><input type="time" id="lStart" value="${esc(l.start)}"></label>
+      <label class="fld grow"><span>Inhalt der Stunde</span><input type="text" id="lTopic" value="${esc(l.topic)}" placeholder="optional"></label>
+      <button class="btn primary" data-do="newLesson">Neue Stunde</button>`;
+  } else {
+    box.innerHTML=`<span class="muted" style="align-self:center">Keine Stunde geöffnet.</span><button class="btn primary" data-do="newLesson">Stunde starten</button>`;
+  }
+  const cp=isCompact(); if(cp&&(S.ui.view==='unit'||S.ui.view==='table')) S.ui.view='plan';
+  document.querySelectorAll('.tabs button').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.view===S.ui.view));b.hidden=cp&&(b.dataset.view==='unit'||b.dataset.view==='table');b.textContent=b.dataset.view==='plan'?(cp?'Erfassen':'Sitzplan'):b.textContent});
+  document.body.classList.toggle('compact',cp);
+  $('#vPlan').hidden=S.ui.view!=='plan'; $('#vUnit').hidden=S.ui.view!=='unit'; $('#vTable').hidden=S.ui.view!=='table'; $('#vData').hidden=S.ui.view!=='data';
+}
+function newLesson(){
+  const g=G(); if(!g) return;
+  const lay=LY(g);
+  const l={id:uid(),date:todayStr(),start:nowHM(),topic:'',e:{},layout:lay.id,members:members(g).map(s=>s.id)};
+  const nx=nextItem(g,lay.id); if(nx){l.plan={u:nx.u.id,i:nx.it.id};l.topic=nx.it.topic}
+  g.lessons.push(l); S.active[g.id]=l.id; UI.edit=false; pending.clear();
+  save(); S.ui.view='plan'; renderAll(); keepAwake();
+}
+
+/* ---------- Reihenplanung ---------- */
+// g.units=[{id,title,items:[{id,topic}]}], g.unitId = Reihe für neue Stunden. Eine Stunde verweist mit l.plan={u,i} auf einen Planeintrag.
+// Fortschritt zählt je Sitzplan: Gruppe A und B bekommen bei Teilungsunterricht jeweils denselben nächsten Inhalt.
+const UN=g=>{g.units=g.units||[];return g.units};
+const curUnit=g=>UN(g).find(u=>u.id===g.unitId)||UN(g)[0]||null;
+const findItem=(g,pl)=>{if(!pl)return null;const u=UN(g).find(x=>x.id===pl.u);const it=u&&u.items.find(x=>x.id===pl.i);return it?{u,it}:null};
+const lessonsOf=(g,itId)=>g.lessons.filter(l=>l.plan&&l.plan.i===itId).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
+function nextItem(g,layId){const u=curUnit(g);if(!u)return null;
+  const it=u.items.find(x=>!g.lessons.some(l=>l.plan&&l.plan.i===x.id&&l.layout===layId));return it?{u,it}:null}
+function topicEdited(l,val){const g=G();l.topic=val;const f=findItem(g,l.plan);if(f){if(UI.topicOrig==null)UI.topicOrig={lid:l.id,t:f.it.topic};f.it.topic=val}}
+function renderDoc(){
+  const box=$('#docPanel'); if(!box) return; const g=G(), l=L(g);
+  if(!g||!l||UI.edit||isCompact()){box.hidden=true;box.innerHTML='';return}
+  box.hidden=false;
+  const f=findItem(g,l.plan);
+  const opts=UN(g).map(u=>`<optgroup label="${esc(u.title)}">${u.items.map((it,i)=>{const used=lessonsOf(g,it.id).filter(x=>x.id!==l.id&&x.layout===l.layout).length;
+      return `<option value="${u.id}|${it.id}"${l.plan&&l.plan.i===it.id?' selected':''}>${i+1}. ${esc(it.topic||'(ohne Inhalt)')}${used?' ✓':''}</option>`}).join('')}</optgroup>`).join('');
+  const shift=UI.shift&&UI.shift.lid===l.id&&f?`<div class="banner" style="margin:0"><p>Geplant war <b>„${esc(UI.shift.t)}“</b>. Die Reihenplanung zeigt jetzt den neuen Inhalt.</p><button class="btn primary" data-do="shiftPlan">Geplanten Inhalt auf die nächste Stunde verschieben</button><button class="btn" data-do="shiftNo">So lassen</button></div>`:'';
+  box.innerHTML=`<div class="dhead"><h3>Stundendokumentation</h3><span class="muted">${wd(l.date)} ${fmtDate(l.date)} · ${esc(l.start)} · ${esc(layName(g,l.layout))}</span></div>
+    ${shift}
+    <div class="dgrid">
+      <label class="fld"><span>Reihenplanung</span><select id="dPlan"><option value="">– nicht aus einer Reihe –</option>${opts}</select></label>
+      <label class="fld"><span>Hausaufgabe</span><input type="text" id="dHw" value="${esc(l.hw||'')}" placeholder="z. B. AB S. 2, Nr. 3"></label>
+    </div>
+    <label class="fld"><span>Was wurde gemacht? (Ablauf, Material, Besonderheiten)</span><textarea id="dDoc" rows="3" placeholder="z. B. Einstieg mit Codebeispiel, Partnerarbeit zu Schleifen, Sicherung an der Tafel">${esc(l.doc||'')}</textarea></label>
+    ${UN(g).length?'':'<p class="muted" style="margin:0;font-size:13px">Noch keine Reihe geplant. Unter „Planung“ legst du eine Reihe an. Neue Stunden übernehmen dann automatisch den nächsten Inhalt.</p>'}`;
+}
+function renderUnit(){
+  const v=$('#vUnit'), g=G();
+  if(!g){v.innerHTML='<p class="muted">Keine Lerngruppe vorhanden.</p>';return}
+  const u=curUnit(g), lay=LY(g), nx=nextItem(g,lay.id);
+  const unitSel=UN(g).length?`<label class="fld grow"><span>Reihe</span><select id="uSel">${UN(g).map(x=>`<option value="${x.id}"${u&&x.id===u.id?' selected':''}>${esc(x.title)}</option>`).join('')}</select></label>`:'';
+  const items=u?u.items.map((it,i)=>{const ls=lessonsOf(g,it.id);
+      const isNext=nx&&nx.it.id===it.id;
+      return `<div class="pi${ls.length?' done':''}${isNext?' next':''}">
+        <span class="pn">${i+1}</span>
+        <input type="text" class="grow" data-item="${it.id}" value="${esc(it.topic)}" aria-label="Inhalt Stunde ${i+1}">
+        <span class="pmeta">${ls.length?ls.map(x=>`${wd(x.date)} ${fmtDate(x.date).slice(0,6)}${g.layouts.length>1?' · '+esc(layName(g,x.layout)):''}`).join('<br>'):(isNext?`<b>nächste Stunde</b> (${esc(lay.name)})`:'offen')}</span>
+        <span class="pbtn"><button class="btn" data-mv="${it.id}" data-d="-1" aria-label="nach oben"${i===0?' disabled':''}>↑</button><button class="btn" data-mv="${it.id}" data-d="1" aria-label="nach unten"${i===u.items.length-1?' disabled':''}>↓</button><button class="btn danger" data-confirm="delItem" data-id="${it.id}" aria-label="löschen">✕</button></span>
+      </div>`}).join(''):'';
+  const proto=g.lessons.slice().sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start)).map(l=>`<div class="li"><span class="grow"><b>${wd(l.date)} ${fmtDate(l.date)}</b> · ${esc(l.start)} · ${esc(layName(g,l.layout))}<br>${esc(l.topic||'–')}${l.doc?`<br><span class="muted">${esc(l.doc)}</span>`:''}${l.hw?`<br><span class="muted">HA: ${esc(l.hw)}</span>`:''}</span><button class="btn" data-open="${l.id}">Öffnen</button></div>`).join('');
+  v.innerHTML=`<div class="cards wide">
+    <div class="card"><h2>Reihenplanung · ${esc(g.name)}</h2>
+      <div class="row2">${unitSel}<button class="btn" data-do="unitNew">+ Neue Reihe</button>${u?'<button class="btn danger" data-confirm="unitDel">Reihe löschen</button>':''}</div>
+      ${u?`<label class="fld"><span>Titel der Reihe</span><input type="text" id="uTitle" value="${esc(u.title)}"></label>
+        <p class="muted" style="font-size:14px">Neue Stunden übernehmen automatisch den nächsten offenen Inhalt dieser Reihe, getrennt nach Sitzplan. Änderst du in der Stunde den Inhalt, ändert sich auch die Planung hier.</p>
+        <div class="plist">${items||'<div class="pi muted">Noch keine Stunden geplant.</div>'}</div>
+        <div class="addbox"><label class="fld"><span>Stunden hinzufügen (ein Inhalt pro Zeile)</span><textarea id="uAdd" rows="3" placeholder="Einführung Schleifen&#10;for-Schleife mit range&#10;Übung"></textarea></label><button class="btn primary" data-do="unitAdd">Hinzufügen</button></div>`
+      :'<p>Lege eine Reihe an und trage die geplanten Stundeninhalte ein. Neue Stunden übernehmen dann automatisch den nächsten Inhalt.</p>'}
+    </div>
+    <div class="card"><h2>Stundenprotokoll</h2>
+      <p class="muted" style="font-size:14px">Alle Stunden dieser Lerngruppe mit Inhalt, Dokumentation und Hausaufgabe.</p>
+      ${g.lessons.length?'<div class="row2"><button class="btn" data-do="csvProto">Protokoll als CSV</button></div>':''}
+      <div class="list">${proto||'<div class="li muted">Noch keine Stunden.</div>'}</div>
+    </div></div>`;
+}
+function csvProto(){
+  const g=G(); const rows=[['Datum','Wochentag','Beginn','Sitzplan','Reihe','Inhalt','Dokumentation','Hausaufgabe','Anwesend','Fehlend']];
+  g.lessons.slice().sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start)).forEach(l=>{
+    const f=findItem(g,l.plan); const es=g.students.filter(st=>inLesson(l,st)&&(!st.since||l.date>=st.since));
+    const ab=es.filter(st=>l.e[st.id]&&l.e[st.id].st!=='p').length;
+    rows.push([fmtDate(l.date),wd(l.date),l.start,layName(g,l.layout),f?f.u.title:'',l.topic||'',l.doc||'',l.hw||'',es.length-ab,ab]);
+  });
+  openExport(`AT_${slug(g.name)}_Stundenprotokoll_${todayStr()}.csv`,csv(rows),'text/csv');
+}
+
+/* ---------- iPhone: Namensliste ---------- */
+const isCompact=()=>S.settings.view==='list'||(S.settings.view!=='plan'&&window.matchMedia&&matchMedia('(max-width: 700px)').matches);
+function rowHTML(st,l){
+  const e=l?entry(l,st.id,false):null, sid=st.id, pHere=pending.has(sid+'|here');
+  let cls='rrow', style='';
+  if(!l) cls+=' disabled';
+  if((e&&e.st!=='p')||pHere) cls+=' absent';
+  else {const sc=score(e); if(sc){const pct=Math.min(100,Math.abs(sc)); style=`--tint:var(${sc>0?'--good':'--bad'});--pct:${pct}%;`; cls+=' tinted'; if(pct>=60) cls+=' strong';}}
+  const att=k=>{const on=e&&e.st===k, key=sid+'|'+k, pe=pending.has(key);
+    return `<button class="att${on?' on':''}${pe?' pend':''}" data-act="${k}" aria-pressed="${on}" aria-label="${k==='e'?'fehlt entschuldigt':'fehlt unentschuldigt'}">${k.toUpperCase()}${ring(key)}</button>`};
+  const late=e&&e.st==='p'&&e.late>0&&!pHere?`<span class="late">+${e.late}′</span>`:'';
+  let body;
+  if((e&&e.st!=='p')||pHere){
+    const lbl=pHere?`kommt: +${e.late} Min.`:(e.st==='e'?'fehlt entschuldigt':'fehlt unentschuldigt');
+    body=`<div class="rabs"><small>${lbl}</small><button class="here${pHere?' pend':''}" data-act="here">${pHere?'rückgängig?':'✓ ist da'}${ring(sid+'|here')}</button></div>`;
+  } else body=`<div class="rcnt">${KINDS.map(K=>{const n=cnt(e,K.k),key=sid+'|'+K.k,pe=pending.has(key);
+      return `<button class="cb ${K.w>0?'pos':'neg'}${n?'':' zero'}${pe?' pend':''}" data-act="${K.k}" aria-label="${K.label}: ${n}">${ICON[K.k]}<span class="n">${n||''}</span>${ring(key)}</button>`}).join('')}</div>`;
+  return `<div class="${cls}" data-sid="${sid}" style="${style}"><div class="top"><span class="name">${esc(st.name)}</span>${late}${att('e')}${att('u')}</div>${body}</div>`;
+}
+function renderList(){
+  const g=G(), l=L(g), box=$('#rlist');
+  $('#room').hidden=true; box.hidden=false;
+  const list=g?members(g).slice().sort((a,b)=>a.name.localeCompare(b.name,'de')):[];
+  box.innerHTML=!g?'<p class="muted">Lade unter „Daten“ die Klassenliste vom MacBook.</p>':list.length?list.map(st=>rowHTML(st,l)).join(''):'<p class="muted">In diesem Sitzplan sitzt noch niemand.</p>';
+  renderPlanTop(); renderDoc(); renderLegend();
+}
+
+/* ---------- Abgleich iPhone → MacBook ---------- */
+function rosterJSON(){
+  const data={app:'AT-Tool',kind:'roster',exported:new Date().toISOString(),
+    groups:S.groups.map(g=>({id:g.id,name:g.name,students:g.students,layouts:g.layouts,layoutId:g.layoutId,grade:g.grade}))};
+  openExport(`AT-Tool_Klassenliste_fuer_iPhone_${todayStr()}.json`,JSON.stringify(data),'application/json');
+}
+function captureJSON(){
+  const cut=new Date();cut.setDate(cut.getDate()-60);const c=dstr(cut);
+  const groups=S.groups.map(g=>({id:g.id,name:g.name,lessons:g.lessons.filter(l=>l.date>=c&&Object.keys(l.e).length).map(l=>({id:l.id,date:l.date,start:l.start,layout:l.layout,members:l.members,e:l.e}))})).filter(g=>g.lessons.length);
+  const data={app:'AT-Tool',kind:'capture',exported:new Date().toISOString(),groups};
+  const t=new Date();openExport(`AT-Tool_iPhone_${todayStr()}_${pad(t.getHours())}${pad(t.getMinutes())}.json`,JSON.stringify(data),'application/json');
+}
+const minOf=t=>{const [h,m]=(t||'0:0').split(':').map(Number);return h*60+m};
+// Einträge vom iPhone dazuzählen. Pro iPhone-Stunde merkt sich das MacBook, was schon übernommen wurde,
+// darum ändert ein zweiter Import derselben oder einer neueren Datei nur den Unterschied.
+function importCapture(d){
+  let merged=0,created=0,taps=0,missing=0;
+  d.groups.forEach(cg=>{
+    const g=S.groups.find(x=>x.id===cg.id); if(!g){missing++;return}
+    cg.lessons.forEach(cl=>{
+      let t=g.lessons.find(l=>l.ext&&l.ext[cl.id]);
+      if(!t) t=g.lessons.find(l=>l.date===cl.date&&l.layout===cl.layout&&Math.abs(minOf(l.start)-minOf(cl.start))<=90);
+      if(t&&!(t.ext&&t.ext[cl.id])) merged++;
+      if(!t){t={id:uid(),date:cl.date,start:cl.start,topic:'',e:{},layout:cl.layout,members:cl.members||null};
+        const sv=g.layoutId;g.layoutId=g.layouts.find(x=>x.id===cl.layout)?cl.layout:sv;const nx=nextItem(g,t.layout);g.layoutId=sv;
+        if(nx){t.plan={u:nx.u.id,i:nx.it.id};t.topic=nx.it.topic}
+        g.lessons.push(t);created++}
+      if(cl.members&&t.members) t.members=[...new Set([...t.members,...cl.members])];
+      t.ext=t.ext||{}; const prev=t.ext[cl.id]||{};
+      Object.entries(cl.e).forEach(([sid,ne])=>{
+        if(!g.students.find(s=>s.id===sid)) return;
+        const pe=prev[sid], e=entry(t,sid);
+        CK.forEach(k=>{const dlt=cnt(ne,k)-cnt(pe,k); if(dlt){e.c[k]=Math.max(0,cnt(e,k)+dlt); taps+=Math.abs(dlt)}});
+        if(!pe||pe.st!==ne.st||(pe.late||0)!==(ne.late||0)){
+          if(ne.st!=='p'){e.st=ne.st;e.late=0}
+          else{ if(pe&&pe.st!=='p'&&e.st!=='p') e.st='p'; if((ne.late||0)>(e.late||0)) e.late=ne.late }
+        }
+      });
+      t.ext[cl.id]=JSON.parse(JSON.stringify(cl.e));
+    });
+  });
+  save(); renderAll();
+  alertBox(`Vom iPhone übernommen: ${merged} Stunde${merged===1?'':'n'} ergänzt, ${created} neu angelegt, ${taps} neue Einträge.${missing?` ${missing} Lerngruppe(n) gibt es auf diesem Gerät nicht.`:''}`);
+}
+
+/* ---------- Sitzplan ---------- */
+function ring(key){
+  const p=pending.get(key); if(!p) return '';
+  const el=((performance.now()-p.t0)/1000).toFixed(2);
+  return `<svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" pathLength="100" style="animation-duration:${S.settings.cd}s;animation-delay:-${el}s"/></svg>`;
+}
+function seatHTML(st,l,p){
+  const pos=`left:${p.x}px;top:${p.y}px;`;
+  if(UI.edit) return `<div class="seat editing" data-sid="${st.id}" style="${pos}"><span class="name">${esc(st.name)}</span><small>ziehen · tippen zum Ändern</small></div>`;
+  const e=l?entry(l,st.id,false):null, sid=st.id;
+  const pHere=pending.has(sid+'|here');
+
+  let cls='seat', style=pos;
+  if(!l) cls+=' disabled';
+  if(e&&e.st!=='p') cls+=' absent';
+  else if(pHere) cls+=' absent';
+  else { const sc=score(e); if(sc){const pct=Math.min(100,Math.abs(sc)); style+=`--tint:var(${sc>0?'--good':'--bad'});--pct:${pct}%;`; cls+=' tinted'; if(pct>=60) cls+=' strong';} }
+  const att=k=>{const on=e&&e.st===k, key=sid+'|'+k, pe=pending.has(key);
+    return `<button class="att${on?' on':''}${pe?' pend':''}" data-act="${k}" aria-pressed="${on}" aria-label="${k==='e'?'fehlt entschuldigt':'fehlt unentschuldigt'}">${k.toUpperCase()}${ring(key)}</button>`};
+  const late=e&&e.st==='p'&&e.late>0&&!pHere?`<span class="late">+${e.late}′</span>`:'';
+  let body;
+  if((e&&e.st!=='p')||pHere){
+    const lbl=pHere?`kommt: +${e.late} Min.`:(e.st==='e'?'fehlt entschuldigt':'fehlt unentschuldigt');
+    body=`<div class="absrow"><small>${lbl}</small><button class="here${pHere?' pend':''}" data-act="here">${pHere?'rückgängig?':'✓ ist da'}${ring(sid+'|here')}</button></div>`;
+  } else {
+    body=`<div class="counters">${KINDS.map(K=>{const n=cnt(e,K.k),key=sid+'|'+K.k,pe=pending.has(key);
+      return `<button class="cb ${K.w>0?'pos':'neg'}${n?'':' zero'}${pe?' pend':''}" data-act="${K.k}" aria-label="${K.label}: ${n}">${ICON[K.k]}<span class="n">${n||''}</span>${ring(key)}</button>`}).join('')}</div>`;
+  }
+  return `<div class="${cls}" data-sid="${sid}" style="${style}"><div class="top"><span class="name">${esc(st.name)}</span>${late}${att('e')}${att('u')}</div>${body}</div>`;
+}
+function renderSeat(sid){
+  const g=G(); const st=g&&g.students.find(s=>s.id===sid);
+  if(isCompact()){const r=$(`#rlist [data-sid="${sid}"]`);if(st&&r){r.outerHTML=rowHTML(st,L(g));renderPlanTop()}return}
+  const el=$(`#stage [data-sid="${sid}"]`);
+  if(!st||!el||!pos(g,sid)) return; el.outerHTML=seatHTML(st,L(g),pos(g,sid)); renderPlanTop();
+}
+function renderPlan(){
+  if(isCompact()){renderList();return}
+  $('#room').hidden=false; $('#rlist').hidden=true;
+  const g=G(), l=L(g), stage=$('#stage');
+  $('#room').classList.toggle('editing',UI.edit);
+  const bp=boardPos(g);
+  let html=`<div class="board${UI.edit?' movable':''}" data-board style="left:${bp.x}px;top:${bp.y}px">${UI.edit?'Tafel · ziehen':'Tafel'}</div>`;
+  if(g) html+=(LY(g).fixtures||[]).map(fxHTML).join('');
+  if(!g) html+='<div class="empty">Lege unter „Daten“ eine Lerngruppe an.</div>';
+  else if(!members(g).length) html+='<div class="empty">'+(live(g).length?'In diesem Sitzplan sitzt noch niemand. Tippe auf „Sitzplan bearbeiten“ und dann auf „Kinder auswählen“.':'Noch keine Schülerinnen und Schüler. Tippe auf „Sitzplan bearbeiten“ und füge Namen hinzu.')+'</div>';
+  else html+=members(g).map(st=>seatHTML(st,l,pos(g,st.id))).join('');
+  stage.innerHTML=html;
+  renderPlanTop(); sizeRoom(); renderDoc(); renderLegend();
+}
+function renderLegend(){
+  const item=(sym,cls,t,sub)=>`<div class="litem"><span class="lsym ${cls}">${sym}</span><span class="ltxt">${t}${sub?`<small>${sub}</small>`:''}</span></div>`;
+  $('#legend').innerHTML=`<h3>Legende</h3><div class="lgrid">`+
+    KINDS.map(K=>item(ICON[K.k],K.w>0?'pos':'neg',K.label,K.k==='a'?`Sitzfarbe <span class="n">−15 %</span>, 2. Mal <span class="n">−20 %</span>, 3. Mal <span class="n">−25 %</span> usw. Richtung Rot`:`Sitzfarbe <span class="${K.w>0?'p':'n'}">${K.w>0?'+':'−'}${Math.abs(K.w)} %</span> ${K.w>0?'Richtung Grün':'Richtung Rot'}`)).join('')+
+    item('E','','fehlt entschuldigt','Sitz wird grau schraffiert')+
+    item('U','','fehlt unentschuldigt','Sitz wird grau schraffiert')+
+    item('✓','here','ist da','Kind kommt nach; Verspätung wird ab Stundenbeginn berechnet')+
+    item('+12′','late','Verspätung in Minuten','erscheint neben dem Namen')+
+    item('','fx-window','Fenster','im Bearbeiten-Modus hinzufügen und ziehen')+
+    item('','fx-door','Tür','im Bearbeiten-Modus hinzufügen und ziehen')+
+    `</div><p class="lfoot">Grüne Kante = positiv, rote Kante = negativ. Nach jedem Tipp schließt sich ein Kreis um das Symbol. Ein zweiter Tipp, bevor er geschlossen ist, löscht die Eingabe.</p>`;
+}
+function fxSize(f){return f.v?[22,f.len]:[f.len,22]}
+function fxHTML(f){const [w,h]=fxSize(f);
+  return `<div class="fx fx-${f.type}${f.v?' vert':''}${UI.edit?' movable':''}" data-fx="${f.id}" style="left:${f.x}px;top:${f.y}px;width:${w}px;height:${h}px"><span>${f.type==='window'?'Fenster':'Tür'}</span></div>`}
+function contentBottom(g){
+  let y=TOP_Y+SEAT_H; if(!g) return y;
+  members(g).forEach(s=>{y=Math.max(y,pos(g,s.id).y+SEAT_H)});
+  y=Math.max(y,boardPos(g).y+BOARD_H);
+  (LY(g).fixtures||[]).forEach(f=>{y=Math.max(y,f.y+fxSize(f)[1])});
+  return y;
+}
+function addFixture(type){
+  const g=G(), lay=LY(g); lay.fixtures=lay.fixtures||[];
+  const len=type==='window'?240:80, y=Math.round((contentBottom(g)+40)/8)*8;
+  lay.fixtures.push({id:uid(),type,x:Math.round((STAGE_W-len)/2/8)*8,y,len,v:false});
+  save(); renderPlan();
+}
+function openFx(id){
+  UI.fxSel=id; UI.editSid=null; const f=LY(G()).fixtures.find(x=>x.id===id); const sh=$('#sheet');
+  sh.innerHTML=`<h3>${f.type==='window'?'Fenster':'Tür'} bearbeiten</h3>
+    <div class="row" style="justify-content:flex-start"><button class="btn" data-do="fxRotate">${f.v?'Waagerecht':'Senkrecht'} stellen</button><button class="btn" data-do="fxShorter">Kürzer</button><button class="btn" data-do="fxLonger">Länger</button></div>
+    <div class="row"><button class="btn danger" data-confirm="fxDelete">Entfernen</button><button class="btn primary" data-do="closeEditor">Fertig</button></div>`;
+  sh.hidden=false;
+}
+function fxChange(fn){const g=G(),f=LY(g).fixtures.find(x=>x.id===UI.fxSel);if(!f)return;fn(f);
+  const [w]=fxSize(f); f.x=Math.max(0,Math.min(STAGE_W-w,f.x)); save(); renderPlan(); openFx(f.id)}
+function renderPlanTop(){
+  const g=G(), l=L(g), box=$('#planTop'); if(!box) return;
+  let h='';
+  if(isCompact()){
+    if(g&&!l) h+=`<div class="banner"><p>Starte eine Stunde, um Einträge zu erfassen.</p><button class="btn primary" data-do="newLesson">Stunde starten</button></div>`;
+    if(g){const lay=LY(g), st=members(g);let ab=0;if(l)st.forEach(s=>{const e=l.e[s.id];if(e&&e.st!=='p')ab++});
+      h+=`<div class="planbar end"><label class="fld grow"><span>Sitzplan</span><select id="laySel">${g.layouts.map(x=>`<option value="${x.id}"${x.id===lay.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label><button class="btn primary" data-do="sendMac">An MacBook senden</button></div>
+        ${l?`<div class="planbar"><span class="stat"><b>${st.length-ab}</b> von ${st.length} anwesend · <b>${ab}</b> fehlen</span></div>`:''}`;}
+    box.innerHTML=h; return;
+  }
+  if(g&&l&&l.date!==todayStr()&&!UI.edit) h+=`<div class="banner"><p>Du bearbeitest die Stunde vom <b>${wd(l.date)} ${fmtDate(l.date)}</b>. Eingaben werden dort gespeichert.</p><button class="btn primary" data-do="newLesson">Neue Stunde für heute</button></div>`;
+  if(g&&!l&&!UI.edit&&live(g).length) h+=`<div class="banner"><p>Starte eine Stunde, um Eingaben zu erfassen.</p><button class="btn primary" data-do="newLesson">Stunde starten</button></div>`;
+  let stat='';
+  if(g&&S.ui.flip&&!UI.edit) h+=`<div class="banner"><p><b>Schülersicht:</b> Der Sitzplan ist gedreht, so wie die Klasse zur Tafel schaut.</p></div>`;
+  if(g&&l&&!UI.edit){const st=members(g);let ab=0,lt=0;st.forEach(s=>{const e=l.e[s.id];if(e&&e.st!=='p')ab++;else if(e&&e.late>0)lt++});
+    stat=`<b>${st.length-ab}</b> von ${st.length} anwesend · <b>${ab}</b> fehlen · <b>${lt}</b> verspätet`;}
+  else if(g&&UI.edit) stat='Sitze, Tafel, Fenster und Türen ziehen zum Umstellen. Tippe auf einen Sitz oder ein Raumelement, um es zu ändern.';
+  if(g){const lay=LY(g);
+    h+=`<div class="planbar end"><label class="fld"><span>Sitzplan</span><select id="laySel">${g.layouts.map(x=>`<option value="${x.id}"${x.id===lay.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`+
+      (UI.edit?`<button class="btn" data-do="layNew">+ Neuer Sitzplan</button><button class="btn" data-do="layEdit">Kinder auswählen · Name</button>`:`<button class="btn" data-do="rotOpen">⟳ Reihen rotieren</button>`)+
+      (lay.rotatedAt&&!UI.edit?`<span class="muted" style="font-size:13px">zuletzt rotiert ${fmtDate(lay.rotatedAt)}</span>`:'')+`</div>`;}
+  h+=`<div class="planbar"><span class="stat">${stat}</span>`+
+     (g?`<button class="btn" data-do="flip" aria-pressed="${!!S.ui.flip}">${S.ui.flip?'↻ Lehrersicht':'↻ Schülersicht'}</button>`+(l&&!UI.edit?`<button class="btn" data-do="showGrades">Noten der Stunde</button>`:'')+(UI.edit?`<button class="btn" data-do="addWindow">+ Fenster</button><button class="btn" data-do="addDoor">+ Tür</button><button class="btn" data-do="arrange">Im Raster anordnen</button><button class="btn primary" data-do="editOff">Fertig</button>`:`<button class="btn" data-do="editOn">Sitzplan bearbeiten</button>`):'')+`</div>`;
+  if(g&&UI.edit) h+=`<div class="planbar"><div class="addbox"><label class="fld"><span>Namen hinzufügen (einer pro Zeile)</span><textarea id="addNames" rows="3" placeholder="Vorname, bei Dopplung z. B. Leon K."></textarea></label><button class="btn primary" data-do="addNames">Hinzufügen</button></div></div>`;
+  const keep=$('#addNames')?$('#addNames').value:null;
+  box.innerHTML=h; if(keep!=null&&$('#addNames')) $('#addNames').value=keep;
+}
+let scale=1;
+function layoutSheet(isNew){
+  const g=G(), lay=LY(g); UI.editSid=null; UI.fxSel=null; UI.laySheet=isNew?'new':'edit';
+  const sel=id=>isNew?true:!!lay.seats[id];
+  $('#sheet').innerHTML=`<h3>${isNew?'Neuer Sitzplan':'Sitzplan bearbeiten'}</h3>
+    <label class="fld"><span>Name (z. B. Gruppe A · Raum 112)</span><input type="text" id="layName" value="${isNew?'':esc(lay.name)}" placeholder="Gruppe A · Informatikraum"></label>
+    ${isNew?`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="layCopy"> Raum und Plätze von „${esc(lay.name)}“ übernehmen</label>`:''}
+    <div class="fld"><span>Wer sitzt in diesem Sitzplan?</span>
+      <div class="row" style="justify-content:flex-start"><button class="btn" data-do="layAll">Alle</button><button class="btn" data-do="layNone">Keine</button></div>
+      <div class="checks">${live(g).slice().sort((a,b)=>a.name.localeCompare(b.name,'de')).map(s=>`<label><input type="checkbox" data-mem="${s.id}"${sel(s.id)?' checked':''}> ${esc(s.name)}</label>`).join('')}</div></div>
+    <div class="row">${!isNew&&g.layouts.length>1?'<button class="btn danger" data-confirm="layDelete">Sitzplan löschen</button>':''}<button class="btn" data-do="closeEditor">Abbrechen</button><button class="btn primary" data-do="laySave">${isNew?'Anlegen':'Übernehmen'}</button></div>`;
+  $('#sheet').hidden=false;
+}
+function laySave(){
+  const g=G(), cur=LY(g), isNew=UI.laySheet==='new';
+  const ids=[...document.querySelectorAll('#sheet [data-mem]')].filter(c=>c.checked).map(c=>c.dataset.mem);
+  const name=$('#layName').value.trim()||(isNew?`Sitzplan ${g.layouts.length+1}`:cur.name);
+  if(isNew){
+    const copy=$('#layCopy')&&$('#layCopy').checked;
+    const lay={id:uid(),name,seats:{},board:copy&&cur.board?{...cur.board}:null,fixtures:copy?(cur.fixtures||[]).map(f=>({...f,id:uid()})):[]};
+    let i=0; ids.forEach(id=>{lay.seats[id]=copy&&cur.seats[id]?{...cur.seats[id]}:null});
+    g.layouts.push(lay); g.layoutId=lay.id;
+    ids.forEach(id=>{if(!lay.seats[id]){lay.seats[id]=freeSlot(g)}});
+  } else {
+    cur.name=name;
+    Object.keys(cur.seats).forEach(id=>{if(!ids.includes(id))delete cur.seats[id]});
+    ids.forEach(id=>{if(!cur.seats[id])cur.seats[id]=freeSlot(g)});
+  }
+  syncLesson(g); save(); $('#sheet').hidden=true; UI.laySheet=null; renderPlan();
+}
+/* Reihen rotieren: Reihen nach Abstand zur Tafel ordnen, Kinder wandern reihenweise weiter, die Plätze bleiben */
+function rowsOf(g){
+  const b=boardPos(g), bc=b.y+BOARD_H/2;
+  const list=members(g).map(s=>({id:s.id,p:pos(g,s.id)})).sort((a,c)=>a.p.y-c.p.y);
+  const rows=[]; list.forEach(it=>{const r=rows[rows.length-1];if(r&&Math.abs(it.p.y-r[0].p.y)<50)r.push(it);else rows.push([it])});
+  rows.sort((r1,r2)=>Math.abs(r1[0].p.y+SEAT_H/2-bc)-Math.abs(r2[0].p.y+SEAT_H/2-bc));
+  rows.forEach(r=>r.sort((a,c)=>a.p.x-c.p.x));
+  return rows;
+}
+function rotate(dir){
+  const g=G(), lay=LY(g), rows=rowsOf(g); if(rows.length<2) return;
+  const flat=rows.flat(), slots=flat.map(it=>({...it.p})), N=flat.length;
+  const k=dir>0?rows[0].length:N-rows[rows.length-1].length;
+  slots.forEach((sl,j)=>{const who=flat[(j+k)%N].id; lay.seats[who]=sl});
+  lay.rotatedAt=todayStr(); save(); renderPlan();
+}
+function rotSheet(){
+  const g=G(), n=rowsOf(g).length; UI.editSid=null; UI.fxSel=null;
+  $('#sheet').innerHTML=`<h3>Reihen rotieren</h3>
+    <p class="muted" style="margin:0;font-size:14px">${n} Reihen erkannt (Reihe 1 = an der Tafel). Die Plätze bleiben, die Kinder wandern reihenweise weiter. Mit der Gegenrichtung machst du eine Rotation rückgängig.</p>
+    <div class="row" style="justify-content:flex-start"><button class="btn primary" data-do="rotFwd"${n<2?' disabled':''}>Reihe 1 nach hinten, alle rücken vor</button><button class="btn" data-do="rotBack"${n<2?' disabled':''}>Letzte Reihe nach vorne</button></div>
+    <div class="row"><button class="btn" data-do="closeEditor">Fertig</button></div>`;
+  $('#sheet').hidden=false;
+}
+function sizeRoom(){
+  const room=$('#room'), stage=$('#stage'), g=G();
+  const w=room.clientWidth||STAGE_W; scale=Math.max(.42,Math.min(1.25,w/STAGE_W));
+  const bp=boardPos(g), bel=$('#stage .board');
+  if(bel&&!(drag&&drag.board)){bel.style.left=bp.x+'px';bel.style.top=bp.y+'px'}
+  const maxY=contentBottom(g);
+  const h=Math.max(420,maxY+(UI.edit?140:28));
+  const flip=!!S.ui.flip; stage.classList.toggle('flipped',flip);
+  stage.style.height=h+'px';
+  stage.style.transform=flip?`translate(${STAGE_W*scale}px,${h*scale}px) scale(${scale}) rotate(180deg)`:`scale(${scale})`;
+  room.style.height=Math.ceil(h*scale)+'px'; room.style.setProperty('--s',scale);
+}
+function freeSlot(g){
+  const used=Object.values(LY(g).seats).filter(Boolean);
+  for(let i=0;i<400;i++){const p=gridPos(i,topY(g)); if(!used.some(q=>Math.abs(q.x-p.x)<110&&Math.abs(q.y-p.y)<80)) return p}
+  return {x:24,y:TOP_Y};
+}
+
+function act(sid,kind){
+  const g=G(), l=L(g); if(!l) return;
+  const key=sid+'|'+kind, p=pending.get(key);
+  if(p){clearTimeout(p.timer);pending.delete(key);p.undo();save();renderSeat(sid);return}
+  const e=entry(l,sid); let undo;
+  if(CKSET.has(kind)){e.c[kind]=cnt(e,kind)+1; undo=()=>{const x=entry(l,sid);x.c[kind]=Math.max(0,cnt(x,kind)-1)}}
+  else{
+    const prev={st:e.st,late:e.late,ab:e.ab};
+    undo=()=>{const x=entry(l,sid);x.st=prev.st;x.late=prev.late;x.ab=prev.ab};
+    if(kind==='here'){e.ab=e.st;e.late=lateMinutes(l);e.st='p'}
+    else if(e.st===kind){e.st='p'}
+    else{e.st=kind;e.late=0;delete e.ab}
+    // offene Gegen-Eingaben zur Anwesenheit dieses Sitzes festschreiben
+    ['e','u','here'].forEach(k=>{if(k!==kind){const q=pending.get(sid+'|'+k);if(q){clearTimeout(q.timer);pending.delete(sid+'|'+k)}}});
+  }
+  const timer=setTimeout(()=>{pending.delete(key);renderSeat(sid)},S.settings.cd*1000);
+  pending.set(key,{t0:performance.now(),timer,undo});
+  save(); renderSeat(sid); keepAwake();
+}
+
+/* Ziehen im Bearbeiten-Modus */
+let drag=null;
+function onDown(ev){
+  if(!UI.edit) return;
+  const bel=ev.target.closest('.board');
+  if(bel){const g=G(); if(!g) return; const b=boardPos(g);
+    drag={el:bel,board:true,lay:LY(g),sx:ev.clientX,sy:ev.clientY,ox:b.x,oy:b.y,moved:false};
+    try{bel.setPointerCapture(ev.pointerId)}catch(e){} ev.preventDefault(); return;}
+  const fel=ev.target.closest('.fx');
+  if(fel){const f=(LY(G()).fixtures||[]).find(x=>x.id===fel.dataset.fx); if(!f) return;
+    drag={el:fel,fx:f,sx:ev.clientX,sy:ev.clientY,ox:f.x,oy:f.y,moved:false};
+    try{fel.setPointerCapture(ev.pointerId)}catch(e){} ev.preventDefault(); return;}
+  const el=ev.target.closest('.seat'); if(!el) return;
+  const st=G().students.find(s=>s.id===el.dataset.sid); const sp=st&&pos(G(),st.id); if(!sp) return;
+  drag={el,st,sp,sx:ev.clientX,sy:ev.clientY,ox:sp.x,oy:sp.y,moved:false};
+  try{el.setPointerCapture(ev.pointerId)}catch(e){}
+  ev.preventDefault();
+}
+function onMove(ev){
+  if(!drag) return;
+  const sg=S.ui.flip?-1:1;
+  const dx=sg*(ev.clientX-drag.sx)/scale, dy=sg*(ev.clientY-drag.sy)/scale;
+  if(!drag.moved&&Math.hypot(dx,dy)<6) return;
+  drag.moved=true; drag.el.classList.add('dragging');
+  const snap=v=>Math.round(v/8)*8;
+  if(drag.fx){const f=drag.fx,[w]=fxSize(f);
+    f.x=Math.max(0,Math.min(STAGE_W-w,snap(drag.ox+dx))); f.y=Math.max(0,snap(drag.oy+dy));
+    drag.el.style.left=f.x+'px'; drag.el.style.top=f.y+'px'; return;}
+  if(drag.board){
+    const b={x:Math.max(0,Math.min(STAGE_W-BOARD_W,snap(drag.ox+dx))),y:Math.max(0,snap(drag.oy+dy))};
+    drag.lay.board=b; drag.el.style.left=b.x+'px'; drag.el.style.top=b.y+'px'; return;
+  }
+  drag.sp.x=Math.max(0,Math.min(STAGE_W-SEAT_W,snap(drag.ox+dx)));
+  drag.sp.y=Math.max(0,snap(drag.oy+dy));
+  drag.el.style.left=drag.sp.x+'px'; drag.el.style.top=drag.sp.y+'px';
+}
+function onUp(){
+  if(!drag) return; const d=drag; drag=null;
+  d.el.classList.remove('dragging');
+  if(d.board){if(d.moved){save();sizeRoom()}return}
+  if(d.fx){if(d.moved){save();sizeRoom()}else openFx(d.fx.id);return}
+  if(d.moved){save();sizeRoom()} else openEditor(d.st.id);
+}
+
+/* Namens-Editor */
+function openEditor(sid){
+  UI.editSid=sid; UI.fxSel=null; const st=G().students.find(s=>s.id===sid); const sh=$('#sheet');
+  sh.innerHTML=`<h3>Sitz bearbeiten</h3><label class="fld"><span>Name</span><input type="text" id="edName" value="${esc(st.name)}"></label>
+    <p class="muted" style="margin:0;font-size:13px"><b>Aus Sitzplan nehmen:</b> nur für diesen Sitzplan, z. B. bei Teilungsunterricht.<br><b>Ausblenden:</b> verlässt die Lerngruppe, bisherige Einträge bleiben in der Tabelle.<br><b>Löschen:</b> entfernt das Kind mit allen Einträgen aus allen Stunden. Das lässt sich nicht rückgängig machen.</p>
+    <div class="row"><button class="btn danger" data-confirm="deleteStudent">Löschen</button><button class="btn" data-do="unseat">Aus Sitzplan nehmen</button><button class="btn" data-confirm="removeStudent">Ausblenden</button><button class="btn primary" data-do="closeEditor">Fertig</button></div>`;
+  sh.hidden=false;
+}
+function closeEditor(){$('#sheet').hidden=true;UI.editSid=null;UI.fxSel=null;UI.laySheet=null;renderPlan()}
+
+/* ---------- Tabelle ---------- */
+function tableLessons(g){
+  if(UI.mode==='single'){const l=g.lessons.find(x=>x.id===UI.lessonSel)||L(g)||g.lessons[g.lessons.length-1];return l?[l]:[]}
+  return g.lessons.filter(l=>(!UI.from||l.date>=UI.from)&&(!UI.to||l.date<=UI.to)&&(!UI.layF||l.layout===UI.layF));
+}
+function stats(g,ls){
+  return g.students.filter(st=>ls.some(l=>inLesson(l,st))&&(!st.archived||ls.some(l=>l.e[st.id]))).map(st=>{
+    const r={st,name:st.name,n:0,e:0,u:0,lc:0,lm:0,m:0,f:0,a:0,s:0,h:0,k:0,status:''};
+    ls.forEach(l=>{
+      if(st.since&&l.date<st.since) return;
+      if(st.archived&&st.archivedAt&&l.date>st.archivedAt&&!l.e[st.id]) return;
+      if(!inLesson(l,st)) return;
+      r.n++; const e=l.e[st.id]; if(!e) return;
+      if(e.st==='e')r.e++; else if(e.st==='u')r.u++;
+      if(e.st==='p'&&e.late>0){r.lc++;r.lm+=e.late}
+      for(const k of CK) r[k]+=cnt(e,k);
+    });
+    if(ls.length===1){const gr=gradeOf(g,ls[0].e[st.id]);r.gtxt=gr?gr.txt:'–';r.gv=gr?gr.pts:-1;}
+    if(ls.length===1){const e=ls[0].e[st.id];r.status=!e||e.st==='p'?(e&&e.late>0?`verspätet ${e.late} Min.`:'anwesend'):(e.st==='e'?'fehlt entsch.':'fehlt unentsch.')}
+    return r;
+  });
+}
+const COLS_RANGE=[['name','Name'],['n','Stunden'],['e','Fehlt entsch.'],['u','Fehlt unentsch.'],['lc','Verspätet'],['lm','Verspätung Min.'],['m','Meldungen'],['f','Fachsprache'],['a','Aufforderungen'],['s','Störungen'],['h','Hefter vergessen'],['k','HA vergessen']];
+const COLS_SINGLE=[['name','Name'],['status','Anwesenheit'],['gv','Note'],['m','Meldungen'],['f','Fachsprache'],['a','Aufforderungen'],['s','Störungen'],['h','Hefter vergessen'],['k','HA vergessen']];
+function sortedRows(rows){
+  const {k,dir}=UI.sort;
+  return rows.slice().sort((a,b)=>{const x=a[k],y=b[k];return (typeof x==='number'?x-y:String(x).localeCompare(String(y),'de'))*dir||a.name.localeCompare(b.name,'de')});
+}
+function renderTable(){
+  const v=$('#vTable'), g=G();
+  if(!g){v.innerHTML='<p class="muted">Keine Lerngruppe vorhanden.</p>';return}
+  if(!UI.from&&!UI.to){[UI.from,UI.to]=halfYear(currentHalf())}
+  const ls=tableLessons(g), cols=UI.mode==='single'?COLS_SINGLE:COLS_RANGE;
+  const rows=sortedRows(stats(g,ls));
+  const lessonOpts=g.lessons.slice().sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start)).map(l=>`<option value="${l.id}">${wd(l.date)} ${fmtDate(l.date)} · ${esc(l.start)} · ${esc(layName(g,l.layout))}${l.topic?' · '+esc(l.topic):''}</option>`).join('');
+  const layOpts=g.layouts.length>1?`<label class="fld"><span>Unterricht</span><select id="tLay"><option value="">alle Stunden</option>${g.layouts.map(x=>`<option value="${x.id}"${UI.layF===x.id?' selected':''}>nur ${esc(x.name)}</option>`).join('')}</select></label>`:'';
+  const curSingle=(ls[0]&&ls[0].id)||'';
+  v.innerHTML=`<div class="tctl">
+      <div class="seg" role="group" aria-label="Auswertung"><button data-mode="range" aria-pressed="${UI.mode==='range'}">Zeitraum</button><button data-mode="single" aria-pressed="${UI.mode==='single'}">Einzelstunde</button></div>
+      ${UI.mode==='range'?`
+        <label class="fld"><span>von</span><input type="date" id="tFrom" value="${UI.from||''}"></label>
+        <label class="fld"><span>bis</span><input type="date" id="tTo" value="${UI.to||''}"></label>
+        <div class="seg" role="group" aria-label="Schnellwahl"><button data-hy="1">1. Halbjahr</button><button data-hy="2">2. Halbjahr</button><button data-hy="0">Alles</button></div>${layOpts}`
+      :`<label class="fld grow"><span>Stunde</span><select id="tLesson">${lessonOpts}</select></label>`}
+      <button class="btn" data-do="csvTable">Tabelle als CSV</button>
+    </div>
+    ${UI.mode==='single'?`<details class="gwbox" id="gwBox"${UI.gwOpen?' open':''}><summary>Gewichtung der Note einstellen</summary><div class="gwin">${gradeForm(g)}</div></details>`:''}
+    <p class="muted" style="margin:0 0 10px">${UI.mode==='range'?`${ls.length} Stunden im Zeitraum`:'Eine Stunde'} · ${esc(g.name)}</p>
+    <div class="tablewrap"><table><thead><tr>${cols.map(([k,t])=>`<th data-sort="${k}"${UI.sort.k===k?` aria-sort="${UI.sort.dir>0?'ascending':'descending'}"`:''}>${t}${UI.sort.k===k?(UI.sort.dir>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead>
+    <tbody>${rows.length?rows.map(r=>`<tr>${cols.map(([k])=>{const val=r[k];
+        if(k==='name') return `<td class="${r.st.archived?'arch':''}">${esc(val)}${r.st.archived?' (entfernt)':''}</td>`;
+        if(k==='status') return `<td>${esc(val)}</td>`;
+        if(k==='gv') return `<td><b>${esc(r.gtxt)}</b></td>`;
+        return `<td class="${val?'':'z'}">${val}</td>`}).join('')}</tr>`).join(''):`<tr><td colspan="${cols.length}" class="muted">Keine Daten.</td></tr>`}</tbody></table></div>
+    <p class="note">„Stunden“ zählt nur die Stunden, in denen das Kind laut Sitzplan dabei war. Bei Teilungsunterricht haben die Kinder daher unterschiedliche Stundenzahlen.</p>
+    ${UI.mode==='single'?`<p class="note"><b>Note</b> ist ein Vorschlag aus Ausgangsnote und Gewichtung (oben unter „Gewichtung der Note einstellen“). Verspätung und Störung zählen nicht. Bei Fehlen gibt es keine Note.</p>`:`<p class="note">Die Zeitraum-Übersicht enthält keine Note. Noten pro Stunde siehst du unter „Einzelstunde“.</p>`}`;
+  if(UI.mode==='single'&&$('#tLesson')) $('#tLesson').value=curSingle;
+}
+
+/* ---------- CSV / JSON ---------- */
+const csvCell=v=>{v=String(v??'');return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+const csv=rows=>'﻿'+rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
+const slug=s=>s.replace(/[^\wäöüÄÖÜß-]+/g,'_').replace(/^_|_$/g,'');
+function csvTable(){
+  const g=G(), ls=tableLessons(g), cols=UI.mode==='single'?COLS_SINGLE:COLS_RANGE;
+  const rows=sortedRows(stats(g,ls));
+  const head=UI.mode==='single'&&ls[0]?[['Lerngruppe',g.name],['Stunde',`${fmtDate(ls[0].date)} ${ls[0].start}`],['Sitzplan',layName(g,ls[0].layout)],['Thema',ls[0].topic||''],[]]:[['Lerngruppe',g.name],['Zeitraum',`${UI.from?fmtDate(UI.from):'Anfang'} – ${UI.to?fmtDate(UI.to):'Ende'}`],['Unterricht',UI.layF?layName(g,UI.layF):'alle Stunden'],[]];
+  const body=[cols.map(c=>c[1]),...rows.map(r=>cols.map(([k])=>k==='name'&&r.st.archived?r.name+' (entfernt)':k==='gv'?r.gtxt:r[k]))];
+  const tag=UI.mode==='single'&&ls[0]?ls[0].date:`${UI.from||'alle'}_${UI.to||''}`;
+  openExport(`AT_${slug(g.name)}_${tag}.csv`,csv([...head,...body]),'text/csv');
+}
+function csvHistory(){
+  const g=G(); const rows=[['Datum','Wochentag','Beginn','Sitzplan','Thema','Name','Anwesenheit','Verspätung Min.','Meldungen','Fachsprache','Aufforderungen','Störungen','Hefter vergessen','Hausaufgabe vergessen']];
+  g.lessons.slice().sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start)).forEach(l=>{
+    g.students.forEach(st=>{
+      if(st.since&&l.date<st.since) return; const e=l.e[st.id];
+      if(st.archived&&!e) return; if(!inLesson(l,st)) return;
+      const s=!e||e.st==='p'?'anwesend':(e.st==='e'?'fehlt entschuldigt':'fehlt unentschuldigt');
+      rows.push([fmtDate(l.date),wd(l.date),l.start,layName(g,l.layout),l.topic||'',st.name,s,e&&e.st==='p'?e.late||0:0,...CK.map(k=>cnt(e,k))]);
+    });
+  });
+  openExport(`AT_${slug(g.name)}_Verlauf_${todayStr()}.csv`,csv(rows),'text/csv');
+}
+function backupJSON(){
+  const data={app:'AT-Tool',version:1,exported:new Date().toISOString(),groups:S.groups,settings:S.settings};
+  openExport(`AT-Tool_Sicherung_${todayStr()}.json`,JSON.stringify(data,null,1),'application/json',true);
+}
+let EXP=null;
+function openExport(name,text,mime,isBackup){
+  EXP={name,text,mime,isBackup};
+  $('#dlg').innerHTML=`<h2>Exportieren</h2><p style="margin:0"><b>${esc(name)}</b></p>
+    <p class="muted" style="margin:0;font-size:14px">Auf dem iPad: „Teilen“ → AirDrop an dein MacBook oder „In Dateien sichern“ → iCloud Drive. iCloud überträgt die Datei automatisch, sobald Internet da ist.</p>
+    <div class="row2"><button class="btn primary" data-do="expShare">Teilen / AirDrop</button><button class="btn" data-do="expSave">Datei speichern</button><button class="btn" data-do="expCopy">Kopieren</button><button class="btn" data-do="expClose" style="margin-left:auto">Schließen</button></div>
+    <div class="msg" id="expMsg" role="status"></div>
+    <textarea id="expText" readonly aria-label="Inhalt"></textarea>`;
+  $('#expText').value=text; $('#overlay').hidden=false;
+}
+function markBackup(){if(EXP&&EXP.isBackup){S.lastBackup=new Date().toISOString();save()}}
+const expMsg=t=>{const m=$('#expMsg');if(m)m.textContent=t};
+async function expShare(){
+  try{const f=new File([EXP.text],EXP.name,{type:EXP.mime});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:EXP.name});markBackup();expMsg('Geteilt.')}
+    else expMsg('Teilen geht hier nicht. Nutze „Datei speichern“ oder „Kopieren“.');
+  }catch(e){if(e&&e.name==='AbortError')return;expMsg('Teilen geht hier nicht. Nutze „Datei speichern“ oder „Kopieren“.')}
+}
+function expSave(){
+  try{const url=URL.createObjectURL(new Blob([EXP.text],{type:EXP.mime+';charset=utf-8'}));
+    const a=document.createElement('a');a.href=url;a.download=EXP.name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);markBackup();
+    expMsg('Download angestoßen. Falls nichts erscheint, nutze „Kopieren“.');
+  }catch(e){expMsg('Speichern geht hier nicht. Nutze „Kopieren“.')}
+}
+function expCopy(){
+  const ta=$('#expText');
+  const fallback=()=>{ta.focus();ta.select();expMsg('Text ist markiert. Jetzt über das Menü kopieren.')};
+  try{navigator.clipboard.writeText(EXP.text).then(()=>{markBackup();expMsg('In die Zwischenablage kopiert.')},fallback)}catch(e){fallback()}
+}
+
+/* ---------- Daten ---------- */
+function renderData(){
+  const v=$('#vData'), g=G();
+  const last=S.lastBackup?new Date(S.lastBackup):null;
+  const days=last?Math.floor((Date.now()-last.getTime())/864e5):null;
+  const groups=S.groups.map(x=>`<div class="li${x.id===S.ui.groupId?' cur':''}">
+      <input type="text" class="grow" data-rename="${x.id}" value="${esc(x.name)}" aria-label="Name der Lerngruppe">
+      <span class="meta">${live(x).length} SuS · ${x.layouts.length} Sitzpl. · ${x.lessons.length} Std.</span>
+      <button class="btn" data-pick="${x.id}">Öffnen</button>
+      <button class="btn danger" data-confirm="delGroup" data-id="${x.id}">Löschen</button></div>`).join('');
+  const lessons=g?g.lessons.slice().sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start)).map(l=>{
+      const ab=Object.values(l.e).filter(e=>e.st!=='p').length;
+      return `<div class="li${l.id===S.active[g.id]?' cur':''}"><span class="grow"><b>${wd(l.date)} ${fmtDate(l.date)}</b> · ${esc(l.start)} · ${esc(layName(g,l.layout))}${l.topic?' · '+esc(l.topic):''}</span>
+      <span class="meta">${ab} gefehlt</span>
+      <button class="btn" data-open="${l.id}">Öffnen</button>
+      <button class="btn danger" data-confirm="delLesson" data-id="${l.id}">Löschen</button></div>`}).join(''):'';
+  v.innerHTML=`<div class="cards">
+    <div class="card"><h2>Lerngruppen</h2>
+      <div class="list">${groups||'<div class="li muted">Noch keine Lerngruppe.</div>'}</div>
+      <div class="row2"><label class="fld grow"><span>Neue Lerngruppe</span><input type="text" id="newGroup" placeholder="z. B. Informatik 10a"></label><button class="btn primary" data-do="addGroup">Anlegen</button></div>
+    </div>
+    <div class="card"><h2>Stunden${g?' · '+esc(g.name):''}</h2>
+      <p class="muted">Öffne eine frühere Stunde, um Einträge nachzutragen oder zu korrigieren.</p>
+      <div class="list">${lessons||'<div class="li muted">Noch keine Stunden.</div>'}</div>
+      ${g&&g.lessons.length?`<div class="row2"><button class="btn" data-do="csvHistory">Verlauf dieser Gruppe als CSV</button></div>`:''}
+    </div>
+    <div class="card"><h2>Sichern &amp; Übertragen</h2>
+      ${storageOK?'':'<div class="warnbox">Dieser Browser lässt gerade kein Speichern zu (z. B. privates Surfen). Eingaben gehen beim Schließen verloren.</div>'}
+      <p>Alle Daten liegen nur auf diesem Gerät, nicht in einer Datenbank. Eine Sicherung enthält alle Lerngruppen, Sitzpläne und Stunden.</p>
+      <p><b>Letzte Sicherung:</b> ${last?`${last.toLocaleDateString('de-DE')} (${days===0?'heute':`vor ${days} Tag${days===1?'':'en'}`})`:'noch keine'}</p>
+      ${days===null||days>=7?'<div class="warnbox">Sichere mindestens einmal pro Woche. Safari kann Webseiten-Daten löschen, wenn das Tool länger nicht geöffnet wurde.</div>':''}
+      <div class="row2"><button class="btn primary" data-do="backup">Sicherung exportieren</button><button class="btn" data-do="importPick">Sicherung importieren</button></div>
+      ${UI.importData?`<div class="warnbox"><p style="margin:0 0 8px">${UI.importData.kind==='roster'?`Klassenliste mit ${UI.importData.groups.length} Lerngruppen. Namen und Sitzpläne auf diesem Gerät werden ersetzt, bereits erfasste Stunden bleiben erhalten.`:`Datei enthält ${UI.importData.groups.length} Lerngruppen mit ${UI.importData.groups.reduce((n,x)=>n+(x.lessons||[]).length,0)} Stunden. Beim Import werden die aktuellen Daten auf diesem Gerät ersetzt.`}</p>
+        <div class="row2"><button class="btn danger" data-confirm="doImport">${UI.importData.kind==='roster'?'Klassenliste übernehmen':'Daten ersetzen'}</button><button class="btn" data-do="cancelImport">Abbrechen</button></div></div>`:''}
+    </div>
+    <div class="card"><h2>iPhone</h2>
+      ${isCompact()?`<p>So nutzt du das iPhone zum Erfassen:</p>
+        <ol class="steps"><li>Auf dem MacBook unter „Daten“ → „Klassenliste an iPhone senden“ wählen und per AirDrop schicken.</li><li>Hier „Datei importieren“ wählen und die Klassenliste aus „Dateien“ öffnen.</li><li>Nach der Stunde „An MacBook senden“ → AirDrop.</li></ol>
+        <div class="row2"><button class="btn primary" data-do="sendMac">An MacBook senden</button><button class="btn" data-do="importPick">Datei importieren</button></div>`
+      :`<p>Mit dem iPhone gehst du durch die Klasse und tippst Einträge in einer Namensliste. Danach überträgst du sie per AirDrop hierher. Die Einträge werden zur passenden Stunde dazugezählt, auch wenn du in derselben Stunde hier schon eingetragen hast. Eine Datei zweimal zu importieren, zählt nichts doppelt.</p>
+        <ol class="steps"><li>„Klassenliste an iPhone senden“ und per AirDrop ans iPhone schicken. Nach neuen Namen oder Sitzplänen wiederholen.</li><li>Auf dem iPhone das Tool öffnen, unter „Daten“ die Klassenliste importieren.</li><li>Nach der Stunde auf dem iPhone „An MacBook senden“. Die Datei landet in „Downloads“. Hier mit „Datei importieren“ öffnen.</li></ol>
+        <div class="row2"><button class="btn primary" data-do="sendPhone">Klassenliste an iPhone senden</button><button class="btn" data-do="importPick">Datei vom iPhone importieren</button></div>`}
+    </div>
+    ${g&&!isCompact()?`<div class="card"><h2>Notenvorschlag · ${esc(g.name)}</h2>${gradeForm(g)}</div>`:''}
+    <div class="card"><h2>Einstellungen</h2>
+      <label class="fld"><span>Erfassungsansicht</span><select id="viewSel"><option value="auto"${(S.settings.view||'auto')==='auto'?' selected':''}>Automatisch (iPhone: Namensliste)</option><option value="list"${S.settings.view==='list'?' selected':''}>Immer Namensliste</option><option value="plan"${S.settings.view==='plan'?' selected':''}>Immer Sitzplan</option></select></label>
+      <label class="fld"><span>Zeit zum Rückgängigmachen</span><select id="cdSel">${[2,3,4,5,6].map(n=>`<option value="${n}"${S.settings.cd===n?' selected':''}>${n} Sekunden</option>`).join('')}</select></label>
+      <p class="muted" style="font-size:14px">Solange sich der Kreis um ein Symbol schließt, löscht ein zweiter Tipp die Eingabe wieder.</p>
+    </div></div>`;
+}
+
+/* ---------- Zweistufiges Bestätigen ---------- */
+const CONFIRM={
+  removeStudent(){const g=G(),st=g.students.find(s=>s.id===UI.editSid);if(st){st.archived=true;st.archivedAt=todayStr();g.layouts.forEach(x=>{delete x.seats[st.id]})}syncLesson(g);save();closeEditor()},
+  delGroup(id){S.groups=S.groups.filter(x=>x.id!==id);delete S.active[id];if(S.ui.groupId===id)S.ui.groupId=S.groups[0]?S.groups[0].id:null;save();renderAll()},
+  delLesson(id){const g=G();g.lessons=g.lessons.filter(l=>l.id!==id);if(S.active[g.id]===id)delete S.active[g.id];save();renderAll()},
+  doImport(){const d=UI.importData;
+    if(d.kind==='roster'){const old=S.groups;S.groups=d.groups.map(x=>{const o=old.find(y=>y.id===x.id);return Object.assign({},x,{lessons:o?o.lessons:[],units:[]})});
+      S.groups.forEach(ensureLayouts);S.active={};S.ui.groupId=S.groups[0]?S.groups[0].id:null;S.ui.view='plan';UI.importData=null;pending.clear();save();renderAll();return}
+    S.groups=d.groups;S.groups.forEach(ensureLayouts);S.settings=Object.assign({cd:3},d.settings||{});S.active={};S.ui.groupId=S.groups[0]?S.groups[0].id:null;UI.importData=null;pending.clear();save();renderAll()},
+  arrange(){const g=G(),lay=LY(g);const ty=topY(g);members(g).forEach((s,i)=>{lay.seats[s.id]=gridPos(i,ty)});save();renderPlan()},
+  unitDel(){const g=G(),u=curUnit(g);if(!u)return;g.lessons.forEach(l=>{if(l.plan&&l.plan.u===u.id)delete l.plan});g.units=UN(g).filter(x=>x.id!==u.id);g.unitId=g.units[0]?g.units[0].id:null;save();renderUnit()},
+  delItem(id){const g=G(),u=curUnit(g);g.lessons.forEach(l=>{if(l.plan&&l.plan.i===id)delete l.plan});u.items=u.items.filter(x=>x.id!==id);save();renderUnit()},
+  layDelete(){const g=G();const id=g.layoutId;g.layouts=g.layouts.filter(x=>x.id!==id);g.layoutId=g.layouts[0].id;save();closeEditor()},
+  fxDelete(){const lay=LY(G());lay.fixtures=(lay.fixtures||[]).filter(f=>f.id!==UI.fxSel);save();closeEditor()},
+  deleteStudent(){const g=G(),sid=UI.editSid;g.students=g.students.filter(s=>s.id!==sid);g.layouts.forEach(x=>{delete x.seats[sid]});g.lessons.forEach(l=>{delete l.e[sid];if(l.members)l.members=l.members.filter(i=>i!==sid)});
+    ['e','u','here',...CK].forEach(k=>{const q=pending.get(sid+'|'+k);if(q){clearTimeout(q.timer);pending.delete(sid+'|'+k)}});save();closeEditor()}
+};
+function arm(btn,fn){
+  if(btn.classList.contains('armed')){fn();return}
+  const t=btn.textContent;btn.classList.add('armed');btn.textContent='Wirklich?';
+  setTimeout(()=>{if(btn.isConnected){btn.classList.remove('armed');btn.textContent=t}},3000);
+}
+
+/* ---------- Aktionen ---------- */
+const DO={
+  newLesson,
+  flip(){S.ui.flip=!S.ui.flip;save();renderPlan()},
+  addWindow(){addFixture('window')}, addDoor(){addFixture('door')},
+  fxRotate(){fxChange(f=>{f.v=!f.v})}, fxLonger(){fxChange(f=>{f.len=Math.min(1200,f.len+40)})}, fxShorter(){fxChange(f=>{f.len=Math.max(40,f.len-40)})},
+  editOn(){UI.edit=true;pending.forEach(p=>clearTimeout(p.timer));pending.clear();renderPlan()},
+  editOff(){UI.edit=false;$('#sheet').hidden=true;renderPlan()},
+  arrange(b){arm(b,CONFIRM.arrange)},
+  addNames(){const g=G(),ta=$('#addNames');const names=ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    names.forEach(n=>{const id=uid();g.students.push({id,name:n,since:todayStr()});LY(g).seats[id]=freeSlot(g)});
+    syncLesson(g);ta.value='';save();renderPlan()},
+  unseat(){const g=G();delete LY(g).seats[UI.editSid];syncLesson(g);save();closeEditor()},
+  layNew(){layoutSheet(true)}, layEdit(){layoutSheet(false)}, laySave,
+  layAll(){document.querySelectorAll('#sheet [data-mem]').forEach(c=>c.checked=true)},
+  layNone(){document.querySelectorAll('#sheet [data-mem]').forEach(c=>c.checked=false)},
+  csvProto, sendMac:captureJSON, sendPhone:rosterJSON,
+  unitNew(){const g=G();const u={id:uid(),title:`Reihe ${UN(g).length+1}`,items:[]};UN(g).push(u);g.unitId=u.id;save();renderUnit();const t=$('#uTitle');if(t){t.focus();t.select()}},
+  unitAdd(){const g=G(),u=curUnit(g),ta=$('#uAdd');if(!u)return;ta.value.split('\n').map(x=>x.trim()).filter(Boolean).forEach(t=>u.items.push({id:uid(),topic:t}));save();renderUnit()},
+  shiftNo(){UI.shift=null;renderDoc()},
+  shiftPlan(){const g=G(),l=L(g),f=findItem(g,l.plan);if(!f||!UI.shift)return;
+    const i=f.u.items.indexOf(f.it); const ins={id:uid(),topic:l.topic}; f.it.topic=UI.shift.t;
+    f.u.items.splice(i,0,ins); l.plan={u:f.u.id,i:ins.id}; UI.shift=null; save(); renderDoc()},
+  showGrades(){const g=G(),l=L(g);if(!l)return;UI.mode='single';UI.lessonSel=l.id;UI.sort={k:'name',dir:1};S.ui.view='table';save();renderAll();window.scrollTo(0,0)},
+  gradeAll(){const src=GR(G());S.groups.forEach(x=>{x.grade=JSON.parse(JSON.stringify(src))});save();renderData()},
+  rotOpen(){rotSheet()}, rotFwd(){rotate(1);rotSheet()}, rotBack(){rotate(-1);rotSheet()},
+  closeEditor,
+  addGroup(){const inp=$('#newGroup');const n=inp.value.trim();if(!n){inp.focus();return}
+    const g={id:uid(),name:n,students:[],lessons:[]};ensureLayouts(g);S.groups.push(g);S.ui.groupId=g.id;S.ui.view='plan';UI.edit=true;save();renderAll()},
+  backup:backupJSON, csvTable, csvHistory,
+  importPick(){$('#importFile').value='';$('#importFile').click()},
+  cancelImport(){UI.importData=null;renderData()},
+  expShare, expSave, expCopy,
+  expClose(){$('#overlay').hidden=true;EXP=null;if(S.ui.view==='data')renderData()}
+};
+
+function renderAll(){renderBar();if(S.ui.view==='plan')renderPlan();if(S.ui.view==='unit')renderUnit();if(S.ui.view==='table')renderTable();if(S.ui.view==='data')renderData()}
+
+/* ---------- Ereignisse ---------- */
+document.addEventListener('click',ev=>{
+  const t=ev.target;
+  const tab=t.closest('.tabs button'); if(tab){S.ui.view=tab.dataset.view;if(S.ui.view!=='plan'){UI.edit=false;$('#sheet').hidden=true}save();renderAll();window.scrollTo(0,0);return}
+  const seatBtn=t.closest('#stage [data-act], #rlist [data-act]');
+  if(seatBtn&&!UI.edit){const sid=seatBtn.closest('[data-sid]').dataset.sid;act(sid,seatBtn.dataset.act);return}
+  const d=t.closest('[data-do]'); if(d&&DO[d.dataset.do]){DO[d.dataset.do](d);return}
+  const c=t.closest('[data-confirm]'); if(c&&CONFIRM[c.dataset.confirm]){arm(c,()=>CONFIRM[c.dataset.confirm](c.dataset.id));return}
+  const mv=t.closest('[data-mv]'); if(mv){const u=curUnit(G()),i=u.items.findIndex(x=>x.id===mv.dataset.mv),j=i+(+mv.dataset.d);
+    if(j>=0&&j<u.items.length){[u.items[i],u.items[j]]=[u.items[j],u.items[i]];save();renderUnit()}return}
+  const pick=t.closest('[data-pick]'); if(pick){S.ui.groupId=pick.dataset.pick;S.ui.view='plan';UI.edit=false;save();renderAll();return}
+  const op=t.closest('[data-open]'); if(op){const g=G();S.active[g.id]=op.dataset.open;const ol=L(g);if(ol&&g.layouts.find(x=>x.id===ol.layout))g.layoutId=ol.layout;S.ui.view='plan';UI.edit=false;save();renderAll();return}
+  const mo=t.closest('[data-mode]'); if(mo){UI.mode=mo.dataset.mode;UI.sort.k=UI.sort.k==='status'||UI.sort.k==='n'?'name':UI.sort.k;renderTable();return}
+  const hy=t.closest('[data-hy]'); if(hy){const h=+hy.dataset.hy;[UI.from,UI.to]=h?halfYear(h):['',''];if(!h){UI.from='';UI.to=''}renderTable();return}
+  const so=t.closest('th[data-sort]'); if(so){const k=so.dataset.sort;UI.sort=UI.sort.k===k?{k,dir:-UI.sort.dir}:{k,dir:k==='name'||k==='status'?1:-1};renderTable();return}
+  if(t.id==='overlay') DO.expClose();
+});
+document.addEventListener('change',ev=>{
+  const t=ev.target;
+  if(t.id==='grp'){S.ui.groupId=t.value;UI.edit=false;$('#sheet').hidden=true;pending.clear();save();renderAll()}
+  else if(t.id==='lStart'){const l=L();if(l&&t.value){l.start=t.value;save()}}
+  else if(t.id==='tFrom'){UI.from=t.value;renderTable()}
+  else if(t.id==='tTo'){UI.to=t.value;renderTable()}
+  else if(t.id==='tLesson'){UI.lessonSel=t.value;renderTable()}
+  else if(t.id==='lTopic'){const l=L();if(l&&UI.topicOrig&&UI.topicOrig.lid===l.id){const o=UI.topicOrig.t;UI.topicOrig=null;
+      if(o&&o!==l.topic&&l.plan){UI.shift={lid:l.id,t:o}}if(S.ui.view==='plan')renderDoc()}}
+  else if(t.id==='dPlan'){const g=G(),l=L(g);if(l){if(t.value){const [u,i]=t.value.split('|');l.plan={u,i};const f=findItem(g,l.plan);if(f&&f.it.topic)l.topic=f.it.topic}else delete l.plan;
+      UI.shift=null;save();renderBar();renderDoc()}}
+  else if(t.id==='uSel'){G().unitId=t.value;save();renderUnit()}
+  else if(t.id==='tLay'){UI.layF=t.value||null;renderTable()}
+  else if(t.id==='laySel'){const g=G();g.layoutId=t.value;const l=L(g);if(l){l.layout=t.value;l.members=members(g).map(s=>s.id)}pending.clear();$('#sheet').hidden=true;save();renderPlan()}
+  else if(t.id==='cdSel'){S.settings.cd=+t.value;save()}
+  else if(t.id==='viewSel'){S.settings.view=t.value;save();renderAll()}
+  else if(t.id==='gScale'){GR(G()).scale=t.value;save();if(S.ui.view==='table')renderTable();else renderData()}
+  else if(t.id==='gBase'){const v=Math.max(0.67,Math.min(6,+t.value));GR(G()).base=v;save();if(S.ui.view==='table')renderTable()}
+  else if(t.dataset.gw){const v=Math.max(0,Math.abs(numIn(t.value)));GR(G()).w[t.dataset.gw]=v;t.value=fmtNum(v);save();if(S.ui.view==='table')renderTable()}
+  else if(t.dataset.rename){const x=S.groups.find(g=>g.id===t.dataset.rename);if(x&&t.value.trim()){x.name=t.value.trim();save();renderBar()}}
+  else if(t.id==='importFile'&&t.files[0]){
+    const r=new FileReader();
+    r.onload=()=>{let d=null;try{d=JSON.parse(r.result);if(!d||!Array.isArray(d.groups))throw 0}catch(e){UI.importData=null;alertBox('Die Datei ist keine gültige AT-Tool-Datei.');renderData();return}
+      if(d.kind==='capture'){UI.importData=null;importCapture(d);return}
+      UI.importData=d;renderData()};
+    r.readAsText(t.files[0]);
+  }
+});
+document.addEventListener('input',ev=>{
+  const t=ev.target;
+  if(t.id==='lTopic'){const l=L();if(l){topicEdited(l,t.value);save()}}
+  else if(t.id==='dDoc'){const l=L();if(l){l.doc=t.value;save()}}
+  else if(t.id==='dHw'){const l=L();if(l){l.hw=t.value;save()}}
+  else if(t.id==='uTitle'){const u=curUnit(G());if(u){u.title=t.value;save()}}
+  else if(t.dataset.item){const g=G(),u=curUnit(g),it=u&&u.items.find(x=>x.id===t.dataset.item);if(it){it.topic=t.value;
+      // offene Stunden dieser Reihe, die heute angelegt und noch nicht umbenannt sind, ziehen mit
+      lessonsOf(g,it.id).forEach(l=>{if(l.date===todayStr())l.topic=t.value});save()}}
+  else if(t.id==='edName'){const st=G().students.find(s=>s.id===UI.editSid);if(st){st.name=t.value;save();const el=$(`#stage [data-sid="${st.id}"] .name`);if(el)el.textContent=t.value}}
+});
+function alertBox(msg){$('#dlg').innerHTML=`<h2>Hinweis</h2><p style="margin:0">${esc(msg)}</p><div class="row2"><button class="btn primary" data-do="expClose">OK</button></div>`;$('#overlay').hidden=false}
+const stage=$('#stage');
+stage.addEventListener('pointerdown',onDown);
+stage.addEventListener('pointermove',onMove);
+stage.addEventListener('pointerup',onUp);
+stage.addEventListener('pointercancel',onUp);
+document.addEventListener('toggle',ev=>{if(ev.target.id==='gwBox')UI.gwOpen=ev.target.open},true);
+let rt,lastCp=null;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{const cp=isCompact();if(cp!==lastCp){lastCp=cp;renderAll()}else if(S.ui.view==='plan'&&!cp)sizeRoom()},80)});
+
+/* Bildschirm wach halten */
+let wl=null;
+async function keepAwake(){try{if('wakeLock' in navigator&&!wl){wl=await navigator.wakeLock.request('screen');wl.addEventListener('release',()=>{wl=null})}}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&L())keepAwake()});
+
+/* Offline-Version: Service Worker nur in der eigenständigen Fassung */
+if(window.AT_STANDALONE&&'serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+
+load(); renderAll();
+})();
+</script>
+
+</body></html>
