@@ -716,7 +716,7 @@ function project(g){
     if(!held.has(it.id))held.set(it.id,new Set()); held.get(it.id).add(o.lay)});
   return res;
 }
-const occTxt=(g,o)=>`${wd(o.ds)} ${ddmm(o.ds)}${isPart(g,o.lay)?' '+esc(layShort(g,o.lay)):''}`;
+const occTxt=(g,o)=>`${wd(o.ds)} ${ddmm(o.ds)} (${o.p}.)${isPart(g,o.lay)?' '+esc(layShort(g,o.lay)):''}`;
 const hue=id=>{let h=7;for(const c of String(id))h=(h*31+c.charCodeAt(0))%360;return h};
 function kw(ds){const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+3-(d.getDay()+6)%7);const w1=new Date(d.getFullYear(),0,4);return 1+Math.round(((d-w1)/864e5-3+(w1.getDay()+6)%7)/7)}
 
@@ -762,14 +762,17 @@ function renderWeek(){
       <div class="wtitle"><b>KW ${kw(UI.weekStart)}</b><span class="muted">${ddmm(days[0])} – ${fmtDate(days[4])}</span></div>
       <button class="btn" data-do="wkNext" aria-label="Nächste Woche">›</button>
       <button class="btn" data-do="wkToday">Heute</button>
-      <span class="sp"></span>${S.timetables.length?'<button class="btn" data-do="ttEditOn">Stundenplan bearbeiten</button>':''}</div>`;
-  const emptyTT=!S.timetables.length?`<div class="banner"><p>Noch kein Stundenplan. Importiere unter „Daten“ eine Stundenplan-Datei oder lege einen leeren Plan an.</p><button class="btn primary" data-do="ttEmpty">Leeren Stundenplan anlegen</button></div>`:'';
+      <span class="sp"></span><button class="btn" data-do="importPick">Stundenplan importieren</button>${S.timetables.length?'<button class="btn" data-do="ttEditOn">Stundenplan bearbeiten</button>':''}</div>`;
+  const emptyTT=!S.timetables.length?`<div class="banner"><p>Noch kein Stundenplan. Importiere deine Stundenplan-Datei oder lege einen leeren Plan an.</p><button class="btn primary" data-do="importPick">Stundenplan-Datei importieren</button><button class="btn" data-do="ttEmpty">Leeren Stundenplan anlegen</button></div>`:'';
   const unassigned=S.timetables.some(t=>t.slots.some(x=>!x.g&&!String(x.cls||'').startsWith('*')));
+  // Teilungsstunden (T), die noch auf einem Sitzplan der ganzen Klasse liegen
+  const badT=[...new Set((ttOn(today)||{slots:[]}).slots.filter(x=>{const g=slotGroup(x);return x.part&&g&&!isPart(g,x.lay)}).map(x=>`${slotGroup(x).name} (${['','Mo','Di','Mi','Do','Fr'][x.d]} ${x.p}.)`))];
   const freeRows=S.free.slice().sort((a,b)=>(a.from||'').localeCompare(b.from||'')).map(f=>{const i=S.free.indexOf(f);
     return `<div class="li"><input type="date" data-free="${i}|from" value="${f.from||''}" aria-label="von"><span class="muted">bis</span><input type="date" data-free="${i}|to" value="${f.to||''}" aria-label="bis"><input type="text" class="grow" data-free="${i}|label" value="${esc(f.label||'')}" aria-label="Bezeichnung"><button class="btn danger" data-confirm="freeDel" data-id="${i}" aria-label="entfernen">✕</button></div>`}).join('');
   const perRows=S.periods.map(x=>`<div class="li"><b style="width:2em">${x.n}.</b><input type="time" data-per="${x.n}|s" value="${x.s}" aria-label="Beginn"><span class="muted">bis</span><input type="time" data-per="${x.n}|e" value="${x.e}" aria-label="Ende"></div>`).join('');
   v.innerHTML=`${ctl}${emptyTT}
     ${unassigned&&!ed?`<div class="banner"><p>Einige Stunden sind noch keiner Lerngruppe zugeordnet. Ohne Zuordnung gibt es keine Termine in der Reihenplanung.</p><button class="btn" data-do="ttEditOn">Zuordnen</button>${S.groups.length<20?'<button class="btn primary" data-do="ttCreateGroups">Fehlende Lerngruppen anlegen</button>':''}</div>`:''}
+    ${badT.length&&!ed?`<div class="banner"><p><b>Teilungsstunden ohne Teilgruppe:</b> ${badT.map(esc).join(', ')}. Diese Stunden liegen auf dem Sitzplan der ganzen Klasse und zählen deshalb als zwei verschiedene Stunden der Reihe. Lege für die Lerngruppe die Sitzpläne „Gruppe A“ und „Gruppe B“ an und ordne sie hier zu.</p><button class="btn primary" data-do="ttEditOn">Zuordnen</button></div>`:''}
     ${S.timetables.length?`<div class="tablewrap"><table class="week"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`:''}
     ${!ed&&S.timetables.length?'<p class="note">Grün umrandet = erfasste Stunde, kursiv = voraussichtlicher Inhalt aus der Reihenplanung. Tippe auf eine Stunde von heute oder früher, um sie zu öffnen oder anzulegen.</p>':''}
     <div class="cards" style="margin-top:14px">
@@ -800,18 +803,21 @@ function ttCellSheet(d,p){
       <label class="fld" style="width:6em"><span>Fach</span><input type="text" id="ttSub" value="${esc(UI.ttTmp?UI.ttTmp.sub:x.sub||'')}"></label>
       <label class="fld" style="width:7em"><span>Raum</span><input type="text" id="ttRoom" value="${esc(UI.ttTmp?UI.ttTmp.room:x.room||'')}"></label></div>
     <label class="fld"><span>Lerngruppe</span><select id="ttG"><option value="">– keine (z. B. Fachseminar, Termin) –</option>${S.groups.map(y=>`<option value="${y.id}"${y.id===gid?' selected':''}>${esc(y.name)}</option>`).join('')}</select></label>
+    ${x.part?`<p class="muted" style="margin:0;font-size:13px">Teilungsstunde (T), Teilgruppe ${esc(x.part)}: Wähle hier den Sitzplan dieser Teilgruppe, nicht den der ganzen Klasse.</p>`:''}
     ${g?`<label class="fld"><span>Sitzplan</span><select id="ttLay">${g.layouts.map(y=>`<option value="${y.id}"${y.id===layId?' selected':''}>${esc(y.name)}</option>`).join('')}</select></label>`:''}
-    <div class="row">${ver.slots.includes(x)?'<button class="btn danger" data-confirm="ttCellDel">Stunde entfernen</button>':''}<button class="btn" data-do="ttCellCancel">Abbrechen</button><button class="btn primary" data-do="ttCellSave">Übernehmen</button></div>`;
+    <div class="row">${ver.slots.includes(x)?'<button class="btn danger" data-confirm="ttCellDel">Stunde entfernen</button>':''}<span class="muted" style="font-size:13px;align-self:center;margin-right:auto">Änderungen werden sofort gespeichert.</span><button class="btn primary" data-do="ttCellSave">Fertig</button></div>`;
   $('#sheet').hidden=false;
 }
-function ttCellSave(){
-  const ver=S.timetables.find(t=>t.id===UI.ttVer), {d,p}=UI.ttCell;
+// Jede Änderung im Fenster wird sofort gespeichert
+function ttCellApply(){
+  const ver=S.timetables.find(t=>t.id===UI.ttVer); if(!ver||!UI.ttCell||!$('#ttCls')) return; const {d,p}=UI.ttCell;
   let x=ver.slots.find(y=>y.d===d&&y.p===p); if(!x){x={d,p};ver.slots.push(x)}
   x.cls=$('#ttCls').value.trim(); x.sub=$('#ttSub').value.trim(); x.room=$('#ttRoom').value.trim();
-  const gid=$('#ttG').value; if(gid){x.g=gid;x.lay=$('#ttLay')?$('#ttLay').value:null}else{delete x.g;delete x.lay}
+  const gid=$('#ttG').value; if(gid){const g=S.groups.find(y=>y.id===gid);x.g=gid;const lv=$('#ttLay')&&$('#ttLay').value;x.lay=g&&g.layouts.find(y=>y.id===lv)?lv:(g?wholeLay(g).id:null)}else{delete x.g;delete x.lay}
   if(!x.cls&&!x.g) ver.slots=ver.slots.filter(y=>y!==x);
-  ttCellClose(); save(); renderWeek();
+  save(); renderWeek();
 }
+function ttCellSave(){ttCellApply();ttCellClose();renderWeek()}
 function ttCellClose(){$('#sheet').hidden=true;UI.ttCell=null;UI.ttG=undefined;UI.ttLay=null;UI.ttTmp=null}
 // Stundenplan-Datei: Lerngruppen über Klasse und Fach zuordnen
 const tok=x=>String(x||'').toLowerCase().split(/[^a-z0-9äöüß]+/).filter(Boolean);
@@ -1259,7 +1265,8 @@ function renderData(){
       <p>Alle Daten liegen nur auf diesem Gerät, nicht in einer Datenbank. Eine Sicherung enthält alle Lerngruppen, Sitzpläne und Stunden.</p>
       <p><b>Letzte Sicherung:</b> ${last?`${last.toLocaleDateString('de-DE')} (${days===0?'heute':`vor ${days} Tag${days===1?'':'en'}`})`:'noch keine'}</p>
       ${days===null||days>=7?'<div class="warnbox">Sichere mindestens einmal pro Woche. Safari kann Webseiten-Daten löschen, wenn das Tool länger nicht geöffnet wurde.</div>':''}
-      <div class="row2"><button class="btn primary" data-do="backup">Sicherung exportieren</button><button class="btn" data-do="importPick">Sicherung importieren</button></div>
+      <div class="row2"><button class="btn primary" data-do="backup">Sicherung exportieren</button><button class="btn" data-do="importPick">Datei importieren</button></div>
+      <p class="muted" style="font-size:13px;margin:0">„Datei importieren“ erkennt selbst, was die Datei enthält: Eine Sicherung ersetzt nach Rückfrage alle Daten. Ein Stundenplan oder Einträge vom iPhone werden ergänzt, ohne etwas zu ersetzen.</p>
       ${UI.importData?`<div class="warnbox"><p style="margin:0 0 8px">${UI.importData.kind==='roster'?`Klassenliste mit ${UI.importData.groups.length} Lerngruppen. Namen und Sitzpläne auf diesem Gerät werden ersetzt, bereits erfasste Stunden bleiben erhalten.`:`Datei enthält ${UI.importData.groups.length} Lerngruppen mit ${UI.importData.groups.reduce((n,x)=>n+(x.lessons||[]).length,0)} Stunden. Beim Import werden die aktuellen Daten auf diesem Gerät ersetzt.`}</p>
         <div class="row2"><button class="btn danger" data-confirm="doImport">${UI.importData.kind==='roster'?'Klassenliste übernehmen':'Daten ersetzen'}</button><button class="btn" data-do="cancelImport">Abbrechen</button></div></div>`:''}
     </div>
@@ -1353,7 +1360,7 @@ function renderAll(){renderBar();if(S.ui.view==='plan')renderPlan();if(S.ui.view
 /* ---------- Ereignisse ---------- */
 document.addEventListener('click',ev=>{
   const t=ev.target;
-  const tab=t.closest('.tabs button'); if(tab){S.ui.view=tab.dataset.view;if(S.ui.view!=='plan'){UI.edit=false;$('#sheet').hidden=true}save();renderAll();window.scrollTo(0,0);return}
+  const tab=t.closest('.tabs button'); if(tab){if(UI.ttCell){ttCellApply();ttCellClose()}S.ui.view=tab.dataset.view;if(S.ui.view!=='plan'){UI.edit=false;$('#sheet').hidden=true}save();renderAll();window.scrollTo(0,0);return}
   const seatBtn=t.closest('#stage [data-act], #rlist [data-act]');
   if(seatBtn&&!UI.edit){const sid=seatBtn.closest('[data-sid]').dataset.sid;act(sid,seatBtn.dataset.act);return}
   const d=t.closest('[data-do]'); if(d&&DO[d.dataset.do]){DO[d.dataset.do](d);return}
@@ -1380,7 +1387,8 @@ document.addEventListener('change',ev=>{
       if(o&&o!==l.topic&&l.plan){UI.shift={lid:l.id,t:o}}if(S.ui.view==='plan')renderDoc()}}
   else if(t.id==='dPlan'){const g=G(),l=L(g);if(l){if(t.value){const [u,i]=t.value.split('|');l.plan={u,i};const f=findItem(g,l.plan);if(f&&f.it.topic)l.topic=f.it.topic}else delete l.plan;
       UI.shift=null;save();renderBar();renderDoc()}}
-  else if(t.id==='ttG'||t.id==='ttLay'){UI.ttTmp={cls:$('#ttCls').value,sub:$('#ttSub').value,room:$('#ttRoom').value};if(t.id==='ttG'){UI.ttG=t.value;UI.ttLay=null}else UI.ttLay=t.value;const c=UI.ttCell;ttCellSheet(c.d,c.p)}
+  else if(t.id==='ttG'||t.id==='ttLay'){UI.ttTmp={cls:$('#ttCls').value,sub:$('#ttSub').value,room:$('#ttRoom').value};if(t.id==='ttG'){UI.ttG=t.value;UI.ttLay=null}else UI.ttLay=t.value;const c=UI.ttCell;ttCellSheet(c.d,c.p);ttCellApply()}
+  else if(t.id==='ttCls'||t.id==='ttSub'||t.id==='ttRoom'){ttCellApply()}
   else if(t.id==='ttVerSel'){UI.ttVer=t.value;renderWeek()}
   else if(t.dataset.free){const [i,f]=t.dataset.free.split('|');const x=S.free[+i];if(x){x[f]=t.value;if(f==='from'&&(!x.to||x.to<x.from))x.to=x.from;save();renderWeek()}}
   else if(t.dataset.per){const [n,f]=t.dataset.per.split('|');const x=per(+n);if(x&&t.value){x[f]=t.value;save()}}
