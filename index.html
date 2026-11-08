@@ -207,6 +207,27 @@ table.week td:first-child{position:static}
 .sgo{display:inline-block!important;margin-top:3px;padding:1px 8px;border-radius:99px;background:var(--accent);color:var(--accent-fg);font-weight:700;font-size:11px}
 .duty{font-size:10.5px;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.04em}
 .rsum{padding:8px 12px;border-radius:10px;background:var(--surface-2);font-size:14px}
+.gsel{min-height:32px;padding:2px 4px;font-size:14px;border-radius:6px;border:1px solid transparent;background:transparent;max-width:100%;font-variant-numeric:tabular-nums}
+.gsel:hover,.gsel:focus{border-color:var(--line);background:var(--surface-2)}
+.gsel.ov{background:color-mix(in oklab,var(--accent) 14%,var(--surface));border-color:color-mix(in oklab,var(--accent) 40%,var(--line));font-weight:700}
+.gsel.big{font-weight:700;font-size:15px}
+table.gb{width:auto;min-width:100%}
+table.gb th,table.gb td{padding:4px 8px;text-align:center}
+.gsel.sm{width:5.2em}
+table.gb th:first-child,table.gb td:first-child{text-align:left}
+table.gb thead th{cursor:default;vertical-align:bottom}
+table.gb th.grp{border-left:2px solid var(--line);color:var(--fg);text-align:left}
+table.gb th.ith{cursor:pointer;color:var(--accent);text-transform:none;letter-spacing:0;font-size:12px}
+table.gb th.ith small,table.gb th small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+table.gb th.ith:hover{text-decoration:underline}
+table.gb .avgh{color:var(--fg)}
+table.gb td.avg{background:var(--surface-2);white-space:nowrap}
+table.gb td.avg small{color:var(--muted);font-size:11px}
+table.gb td.gc.k-e{background:color-mix(in oklab,var(--warn) 16%,var(--surface))}
+table.gb td.gc.k-u{background:color-mix(in oklab,var(--bad) 12%,var(--surface))}
+.ne{color:var(--warn);font-weight:700}
+.why{min-height:32px;width:100%;min-width:16em;font-size:14px}
+.why:disabled{background:transparent;border-color:transparent}
 .legend{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
 .legend h3{margin-bottom:10px}
 .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:8px 20px}
@@ -289,6 +310,7 @@ td.arch{color:var(--muted);font-style:italic}
     <button role="tab" data-view="week">Stundenplan</button>
     <button role="tab" data-view="unit">Planung</button>
     <button role="tab" data-view="table">Tabelle</button>
+    <button role="tab" data-view="grades">Noten</button>
     <button role="tab" data-view="data">Daten</button>
   </nav>
 </header>
@@ -304,6 +326,7 @@ td.arch{color:var(--muted);font-style:italic}
   <section id="vWeek" hidden></section>
   <section id="vUnit" hidden></section>
   <section id="vTable" hidden></section>
+  <section id="vGrades" hidden></section>
   <section id="vData" hidden></section>
 </main>
 
@@ -425,6 +448,9 @@ function seed(){
   g.lessons.forEach(l=>{const it=unit.items.find(x=>l.topic===x.topic||l.topic===x.topic+' (Praxis)');if(it)l.plan={u:unit.id,i:it.id};
     if(l.layout===g.layouts[0].id)l.doc='Einstieg mit Codebeispiel, Erarbeitung in Partnerarbeit, Sicherung an der Tafel.'});
   const cur=mk(todayStr(),'08:00',unit.items[6].topic,true,g.layouts[0]); cur.plan={u:unit.id,i:unit.items[6].id};
+  const b=GB(g); const fri=dstr(today); const back=n=>{const d=new Date(today);d.setDate(d.getDate()-n);return dstr(d)};
+  const mkI=(name,part,cat,date)=>{const it={id:uid(),name,part,cat,date,w:1,v:{}};g.students.forEach(st=>{if(rnd()<.06)it.v[st.id]={s:'e'};else it.v[st.id]={p:Math.max(1,Math.min(15,Math.round(9+(rnd()-.5)*9)))}});b.items.push(it)};
+  mkI('Klassenarbeit 1','w',null,back(21)); mkI('Test Schleifen','a',b.cats[1].id,back(9)); mkI('Referat','a',b.cats[2].id,back(2));
   const s={groups:[g],active:{},settings:{cd:3},ui:{view:'plan',groupId:g.id}};
   const sl=(d,p,lay,room)=>({d,p,cls:'9b',sub:'Inf',room,g:g.id,lay:lay.id});
   s.timetables=[{id:uid(),from:'2026-08-31',slots:[sl(5,1,g.layouts[0],'R 204'),sl(3,3,la,'Inf-Raum'),sl(3,5,lb,'Inf-Raum')],duties:[]}];
@@ -465,6 +491,12 @@ function gradeOf(g,e){
   else {const n=Math.ceil((16-pts)/3), r=(16-pts)%3; txt=n+(r===1?'+':r===0?'−':'');} // 15→1+, 14→1, 13→1−
   return {pts,txt};
 }
+// Stundennote eines Kindes in einer Stunde: Vorschlag aus den Einträgen oder von Hand überschrieben (l.gOv)
+function lessonGrade(g,l,sid){const e=l.e[sid]; if(e&&e.st!=='p') return null;
+  const auto=gradeOf(g,e); const ov=l.gOv&&l.gOv[sid];
+  if(ov!=null) return {pts:ov,txt:glbl(g,ov),ov:true,auto};
+  return auto?{...auto,ov:false,auto}:null}
+const glbl=(g,p)=>GR(g).scale==='pts'?String(p):PTS_LBL(p);
 const PTS_LBL=p=>{if(p===0)return '6';const n=Math.ceil((16-p)/3),r=(16-p)%3;return n+(r===1?'+':r===0?'−':'')};
 function gradeForm(g){const gr=GR(g);
   const baseOpts=Array.from({length:16},(_,k)=>15-k).map(p=>{const v=(17-p)/3;
@@ -506,10 +538,10 @@ function renderBar(){
   } else {
     box.innerHTML=`<span class="muted" style="align-self:center">Keine Stunde geöffnet.</span><button class="btn primary" data-do="newLesson">Stunde starten</button>`;
   }
-  const cp=isCompact(); if(cp&&(S.ui.view==='unit'||S.ui.view==='table'||S.ui.view==='week')) S.ui.view='plan';
-  document.querySelectorAll('.tabs button').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.view===S.ui.view));b.hidden=cp&&(b.dataset.view==='unit'||b.dataset.view==='table'||b.dataset.view==='week');b.textContent=b.dataset.view==='plan'?(cp?'Erfassen':'Sitzplan'):b.textContent});
+  const cp=isCompact(); if(cp&&['unit','table','week','grades'].includes(S.ui.view)) S.ui.view='plan';
+  document.querySelectorAll('.tabs button').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.view===S.ui.view));b.hidden=cp&&['unit','table','week','grades'].includes(b.dataset.view);b.textContent=b.dataset.view==='plan'?(cp?'Erfassen':'Sitzplan'):b.textContent});
   document.body.classList.toggle('compact',cp);
-  $('#vPlan').hidden=S.ui.view!=='plan'; $('#vUnit').hidden=S.ui.view!=='unit'; $('#vWeek').hidden=S.ui.view!=='week'; $('#vTable').hidden=S.ui.view!=='table'; $('#vData').hidden=S.ui.view!=='data';
+  $('#vPlan').hidden=S.ui.view!=='plan'; $('#vUnit').hidden=S.ui.view!=='unit'; $('#vWeek').hidden=S.ui.view!=='week'; $('#vTable').hidden=S.ui.view!=='table'; $('#vGrades').hidden=S.ui.view!=='grades'; $('#vData').hidden=S.ui.view!=='data';
 }
 function createLesson(g,layId,ds,start){
   if(g.layouts.find(x=>x.id===layId)) g.layoutId=layId;
@@ -856,6 +888,195 @@ function ttCreateGroups(){
   S.timetables.forEach(matchSlots); save(); $('#overlay').hidden=true; renderAll();
 }
 
+/* ---------- Noten ---------- */
+// g.gb = { wW: % schriftlich, cats:[{id,name,w,auto}] (AT-Kategorien, w in % des AT, auto = Mitarbeit aus Stundennoten),
+//          items:[{id,part:'w'|'a',cat,name,date,w,v:{sid:{p}|{s:'e'|'u'}}}], mitOv:{1:{},2:{}}, hjOv:{1:{},2:{}}, yOv:{sid:{p,why}} }
+// Alle Werte intern in Punkten 0–15 (1+ = 15 … 6 = 0).
+function GB(g){if(!g.gb)g.gb={wW:50,cats:[{id:uid(),name:'Mitarbeit (aus den Stunden)',w:60,auto:true},{id:uid(),name:'Tests',w:20},{id:uid(),name:'Präsentationen / Referate',w:20}],items:[],mitOv:{1:{},2:{}},hjOv:{1:{},2:{}},yOv:{}};
+  const b=g.gb;b.mitOv=b.mitOv||{1:{},2:{}};b.hjOv=b.hjOv||{1:{},2:{}};b.yOv=b.yOv||{};b.items=b.items||[];return b}
+const inHJ=(ds,hj)=>{const [a,b]=halfYear(hj);return ds>=a&&ds<=b};
+const gopts=(g,cur,first)=>`<option value="">${esc(first)}</option>`+Array.from({length:16},(_,k)=>15-k).map(p=>`<option value="p:${p}"${cur==='p:'+p?' selected':''}>${glbl(g,p)}</option>`).join('');
+const decN=p=>p>=1?(17-p)/3:6-p*2/3; // 15 → 0,67 … 1 → 5,33, 0 → 6,0
+const avgTxt=(g,x)=>x==null?'–':GR(g).scale==='pts'?fmtNum(x.toFixed(1))+' P.':`${PTS_LBL(Math.round(x))} (${fmtNum(decN(x).toFixed(1))})`;
+const avgHTML=(g,x)=>x==null?'<span class="z">–</span>':GR(g).scale==='pts'?`<b>${fmtNum(x.toFixed(1))}</b>`:`<b>${PTS_LBL(Math.round(x))}</b> <small>${fmtNum(decN(x).toFixed(1))}</small>`;
+// Anwesenheit am Tag einer Leistung (aus dem Sitzplan, auch nachträglich geändert)
+function attOn(g,ds,sid){let r=null;g.lessons.forEach(l=>{if(l.date!==ds)return;const e=l.e[sid];if(e&&e.st==='u')r='u';else if(e&&e.st==='e'&&r!=='u')r='e'});return r}
+function cellState(g,it,sid){const v=it.v[sid];
+  if(v&&v.p!=null) return {p:v.p,k:'p'};
+  if(v&&v.s==='u') return {p:0,k:'u'}; if(v&&v.s==='e') return {p:null,k:'e'};
+  const a=it.date?attOn(g,it.date,sid):null;
+  if(a==='u') return {p:0,k:'u',auto:true}; if(a==='e') return {p:null,k:'e',auto:true};
+  return {p:null,k:''};
+}
+function wavg(list){let s=0,w=0;list.forEach(([p,ww])=>{if(p!=null){s+=p*ww;w+=ww}});return w?s/w:null}
+function mitAuto(g,hj,st){const v=[];g.lessons.forEach(l=>{if(!inHJ(l.date,hj)||!inLesson(l,st)||(st.since&&l.date<st.since))return;const r=lessonGrade(g,l,st.id);if(r)v.push(r.pts)});
+  return {avg:v.length?v.reduce((a,b)=>a+b,0)/v.length:null,n:v.length}}
+function hjCalc(g,hj,st){
+  const b=GB(g), items=b.items.filter(it=>it.date&&inHJ(it.date,hj));
+  const W=wavg(items.filter(it=>it.part==='w').map(it=>[cellState(g,it,st.id).p,+it.w||1]));
+  const cats=b.cats.map(c=>{if(c.auto){const m=mitAuto(g,hj,st);const ov=b.mitOv[hj][st.id];return {c,val:ov!=null?ov:m.avg,auto:m,ov}}
+    return {c,val:wavg(items.filter(it=>it.part==='a'&&it.cat===c.id).map(it=>[cellState(g,it,st.id).p,+it.w||1]))}});
+  const A=wavg(cats.map(x=>[x.val,+x.c.w||0]).filter(x=>x[1]>0));
+  const wW=Math.max(0,Math.min(100,+b.wW||0));
+  let H=null; if(W!=null&&A!=null) H=(wW*W+(100-wW)*A)/100; else H=W!=null?W:A;
+  if(wW===0) H=A; if(wW===100) H=W;
+  const ov=b.hjOv[hj][st.id]; const fin=ov!=null?ov:(H==null?null:Math.round(H));
+  return {items,W,cats,A,H,fin,ov};
+}
+function yearCalc(g,st){const a=hjCalc(g,1,st).fin, c=hjCalc(g,2,st).fin; let y=null;
+  if(a!=null&&c!=null){const m=(a+c)/2; y=(m%1===0.5)?(c>a?Math.ceil(m):Math.floor(m)):Math.round(m)} else y=a!=null?a:c;
+  const ov=GB(g).yOv[st.id]; return {a,c,y,fin:ov&&ov.p!=null?ov.p:y,ov}}
+const gbStudents=g=>g.students.filter(s=>!s.archived).slice().sort((a,b)=>a.name.localeCompare(b.name,'de'));
+const catName=(g,id)=>{const c=GB(g).cats.find(x=>x.id===id);return c?c.name:'–'};
+
+function renderGrades(){
+  const v=$('#vGrades'), g=G(); if(!g){v.innerHTML='<p class="muted">Keine Lerngruppe vorhanden.</p>';return}
+  const b=GB(g); if(!UI.gbHJ) UI.gbHJ=currentHalf(); const hj=UI.gbHJ;
+  const sts=gbStudents(g);
+  const sumW=b.cats.reduce((a,c)=>a+(+c.w||0),0);
+  const wpanel=`<details class="gwbox" id="gbBox"${UI.gbOpen?' open':''}><summary>Gewichtung</summary><div class="gwin">
+      <div class="row2"><label class="fld"><span>Schriftlicher Teil</span><span class="gwi"><input type="text" inputmode="decimal" id="gbW" value="${fmtNum(b.wW)}" style="width:5em"> %</span></label>
+        <div class="fld"><span>Allgemeiner Teil (AT)</span><span class="chip">${fmtNum(+(100-b.wW).toFixed(1))} %</span></div>
+        <label class="fld"><span>Skala</span><select id="gScale"><option value="note"${GR(g).scale==='note'?' selected':''}>Noten 1+ bis 6</option><option value="pts"${GR(g).scale==='pts'?' selected':''}>Punkte 15 bis 0</option></select></label></div>
+      <div class="fld"><span>Kategorien im allgemeinen Teil (Anteil am AT)</span>
+        <div class="list">${b.cats.map(c=>`<div class="li"><input type="text" class="grow" data-cat="${c.id}|name" value="${esc(c.name)}" aria-label="Name der Kategorie"><span class="gwi"><input type="text" inputmode="decimal" data-cat="${c.id}|w" value="${fmtNum(c.w)}" style="width:4.5em" aria-label="Anteil"> %</span>
+          <label class="muted" style="font-size:12px;display:flex;gap:4px;align-items:center"><input type="radio" name="gbAuto" data-catauto="${c.id}"${c.auto?' checked':''}> aus Stundennoten</label>
+          <button class="btn danger" data-confirm="catDel" data-id="${c.id}" aria-label="entfernen">✕</button></div>`).join('')}</div></div>
+      <div class="row2"><button class="btn" data-do="catAdd">+ Kategorie</button><span class="${Math.abs(sumW-100)<0.01?'muted':'swarn'}" style="font-size:13px">Summe ${fmtNum(+sumW.toFixed(1))} %${Math.abs(sumW-100)<0.01?'':' – wird anteilig verrechnet'}</span></div>
+      <p class="muted" style="font-size:13px;margin:0">Mehrere schriftliche Leistungen zählen untereinander gleich, außer du gibst einer Leistung ein anderes Gewicht. Die Mitarbeit ist der Durchschnitt der Stundennoten im Halbjahr. Wie eine Stundennote entsteht, stellst du unter „Daten“ → „Notenvorschlag“ ein.</p>
+    </div></details>`;
+  const kidOpts=sts.map(s=>`<option value="${s.id}"${UI.gbKid===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+  const ctl=`<div class="tctl">
+      <div class="seg" role="group" aria-label="Zeitraum"><button data-gbhj="1" aria-pressed="${hj===1}">1. Halbjahr</button><button data-gbhj="2" aria-pressed="${hj===2}">2. Halbjahr</button><button data-gbhj="y" aria-pressed="${hj==='y'}">Schuljahr</button></div>
+      ${hj!=='y'?'<button class="btn primary" data-do="gbItemNew">+ Leistung</button>':''}
+      <button class="btn" data-do="gbCsv">Tabelle als CSV</button>
+      <span class="sp" style="flex:1"></span>
+      <label class="fld"><span>Übersicht für Word</span><select id="gbKid">${kidOpts}</select></label>
+      <button class="btn" data-do="gbWordKid">Word: dieses Kind</button><button class="btn" data-do="gbWordAll">Word: alle</button></div>`;
+  let table='';
+  if(!sts.length) table='<p class="muted">Diese Lerngruppe hat noch keine Schülerinnen und Schüler.</p>';
+  else if(hj==='y'){
+    const rows=sts.map(st=>{const y=yearCalc(g,st);const cur=y.ov&&y.ov.p!=null?'p:'+y.ov.p:'';
+      return `<tr><td>${esc(st.name)}</td><td>${y.a==null?'<span class="z">–</span>':'<b>'+glbl(g,y.a)+'</b>'}</td><td>${y.c==null?'<span class="z">–</span>':'<b>'+glbl(g,y.c)+'</b>'}</td>
+        <td>${y.y==null?'<span class="z">–</span>':'<b>'+glbl(g,y.y)+'</b>'}</td>
+        <td><select class="gsel big${y.ov&&y.ov.p!=null?' ov':''}" data-yov="${st.id}" aria-label="Zeugnisnote ${esc(st.name)}">${gopts(g,cur,y.y==null?'–':'wie berechnet: '+glbl(g,y.y))}</select></td>
+        <td><input type="text" class="why" data-ywhy="${st.id}" value="${esc(y.ov&&y.ov.why||'')}" placeholder="${y.ov&&y.ov.p!=null?'Begründung (pädagogischer Spielraum)':''}"${y.ov&&y.ov.p!=null?'':' disabled'} aria-label="Begründung"></td></tr>`}).join('');
+    table=`<div class="tablewrap"><table class="gb"><thead><tr><th>Name</th><th>1. Halbjahr</th><th>2. Halbjahr</th><th>Jahresnote berechnet</th><th>Zeugnisnote</th><th>Begründung bei Abweichung</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="note">Die Jahresnote ist der Mittelwert beider Halbjahresnoten. Liegt er genau zwischen zwei Stufen, entscheidet das 2. Halbjahr. Weicht die Zeugnisnote von der berechneten ab, trage eine Begründung ein.</p>`;
+  } else {
+    const items=b.items.filter(it=>it.date&&inHJ(it.date,hj)).sort((x,y)=>x.date.localeCompare(y.date));
+    const wI=items.filter(it=>it.part==='w');
+    const groups=[{key:'w',name:`Schriftlich · ${fmtNum(b.wW)} %`,items:wI,avg:'W'}].concat(b.cats.map(c=>({key:c.id,c,name:`${c.name} · ${fmtNum(c.w)} % des AT`,items:c.auto?[]:items.filter(it=>it.part==='a'&&it.cat===c.id)})));
+    const ih=it=>{const ne=sts.filter(st=>cellState(g,it,st.id).k==='e').length;return `<th class="ith" data-gbitem="${it.id}" title="Bearbeiten">${esc(it.name)}<small>${ddmm(it.date)}${(+it.w||1)!==1?' · ×'+fmtNum(+it.w):''}${ne?` · <span class="ne">${ne}× E</span>`:''}</small></th>`};
+    let h1='<tr><th rowspan="2">Name</th>', h2='<tr>';
+    groups.forEach(gr=>{
+      if(gr.c&&gr.c.auto){h1+=`<th class="grp">${esc(gr.name)}</th>`;h2+='<th>Ø Stunden</th>';return}
+      const n=gr.items.length; h1+=`<th class="grp" colspan="${n+1}">${esc(gr.name)}</th>`; gr.items.forEach(it=>h2+=ih(it)); h2+=`<th class="avgh">Ø</th>`});
+    h1+='<th class="grp" colspan="3">Ergebnis</th></tr>'; h2+='<th class="avgh">Ø AT</th><th class="avgh">berechnet</th><th class="avgh">Halbjahresnote</th></tr>';
+    const cell=(it,st)=>{const cs=cellState(g,it,st.id), v=it.v[st.id]; const cur=v&&v.p!=null?'p:'+v.p:v&&v.s?'s:'+v.s:'';
+      const first=cs.auto?(cs.k==='u'?'U laut Sitzplan (6)':'E laut Sitzplan'):'–';
+      return `<td class="gc ${cs.k?'k-'+cs.k:''}"><select class="gsel sm" data-gbv="${it.id}|${st.id}" aria-label="${esc(it.name)} ${esc(st.name)}">${gopts(g,cur,first)}<option value="s:e"${cur==='s:e'?' selected':''}>E – schreibt nach</option><option value="s:u"${cur==='s:u'?' selected':''}>U – unentschuldigt (6)</option></select></td>`};
+    const rows=sts.map(st=>{const r=hjCalc(g,hj,st);let tds=`<td>${esc(st.name)}</td>`;
+      groups.forEach(gr=>{
+        if(gr.c&&gr.c.auto){const x=r.cats.find(y=>y.c.id===gr.c.id);const m=x.auto;const cur=x.ov!=null?'p:'+x.ov:'';
+          tds+=`<td><select class="gsel${x.ov!=null?' ov':''}" data-mov="${st.id}" aria-label="Mitarbeit ${esc(st.name)}">${gopts(g,cur,m.avg==null?'– (keine Stunden)':`auto: ${avgTxt(g,m.avg)} · ${m.n} Std.`)}</select></td>`;return}
+        gr.items.forEach(it=>tds+=cell(it,st));
+        const val=gr.key==='w'?r.W:(r.cats.find(y=>y.c.id===gr.key)||{}).val;
+        tds+=`<td class="avg">${avgHTML(g,val)}</td>`});
+      const cur=r.ov!=null?'p:'+r.ov:'';
+      tds+=`<td class="avg">${avgHTML(g,r.A)}</td><td class="avg">${avgHTML(g,r.H)}</td><td><select class="gsel big${r.ov!=null?' ov':''}" data-hov="${st.id}" aria-label="Halbjahresnote ${esc(st.name)}">${gopts(g,cur,r.H==null?'–':'wie berechnet: '+glbl(g,Math.round(r.H)))}</select></td>`;
+      return `<tr>${tds}</tr>`}).join('');
+    table=`<div class="tablewrap"><table class="gb"><thead>${h1}${h2}</thead><tbody>${rows}</tbody></table></div>
+      <p class="note">Tippe auf den Namen einer Leistung, um sie zu bearbeiten. <b>E</b> = schreibt nach (zählt erst mit der nachgetragenen Note), <b>U</b> = unentschuldigt, zählt als 6. Fehlt ein Kind laut Sitzplan am Tag der Leistung, wird E oder U automatisch übernommen, auch wenn du die Anwesenheit später änderst. Blau hinterlegte Felder sind von Hand überschrieben.</p>`;
+  }
+  v.innerHTML=ctl+wpanel+table;
+}
+function gbItemSheet(id){
+  const g=G(), b=GB(g); const isNew=!id; const it=isNew?{name:'',part:'w',cat:'',date:todayStr(),w:1}:b.items.find(x=>x.id===id);
+  UI.gbItem=isNew?null:id;
+  const opts=`<option value="w"${it.part==='w'?' selected':''}>Schriftlich (Klassenarbeit, LEK …)</option>`+b.cats.filter(c=>!c.auto).map(c=>`<option value="a:${c.id}"${it.part==='a'&&it.cat===c.id?' selected':''}>AT: ${esc(c.name)}</option>`).join('');
+  $('#sheet').innerHTML=`<h3>${isNew?'Neue Leistung':'Leistung bearbeiten'}</h3>
+    <label class="fld"><span>Bezeichnung</span><input type="text" id="giName" value="${esc(it.name)}" placeholder="z. B. Klassenarbeit 1, Test Zelle, Referat"></label>
+    <div class="row2"><label class="fld grow"><span>Bereich</span><select id="giPart">${opts}</select></label>
+      <label class="fld"><span>Datum</span><input type="date" id="giDate" value="${it.date||''}"></label>
+      <label class="fld" style="width:7em"><span>Gewicht</span><input type="text" inputmode="decimal" id="giW" value="${fmtNum(+it.w||1)}"></label></div>
+    <p class="muted" style="margin:0;font-size:13px">Das Datum bestimmt das Halbjahr. Gewicht 1 = normal, 2 = zählt doppelt innerhalb seines Bereichs.</p>
+    <div class="row">${isNew?'':'<button class="btn danger" data-confirm="gbItemDel">Leistung löschen</button>'}<button class="btn" data-do="gbItemClose">Abbrechen</button><button class="btn primary" data-do="gbItemSave">${isNew?'Anlegen':'Fertig'}</button></div>`;
+  $('#sheet').hidden=false; if(isNew) setTimeout(()=>{const n=$('#giName');if(n)n.focus()},50);
+}
+function gbItemSave(){const g=G(), b=GB(g); const name=$('#giName').value.trim()||'Leistung'; const pv=$('#giPart').value; const date=$('#giDate').value||todayStr();
+  let it=UI.gbItem?b.items.find(x=>x.id===UI.gbItem):null; if(!it){it={id:uid(),v:{}};b.items.push(it)}
+  it.name=name; it.date=date; it.w=Math.max(0.1,numIn($('#giW').value)||1); if(pv==='w'){it.part='w';it.cat=null}else{it.part='a';it.cat=pv.slice(2)}
+  if(!inHJ(date,UI.gbHJ)&&UI.gbHJ!=='y') UI.gbHJ=inHJ(date,1)?1:2;
+  $('#sheet').hidden=true; UI.gbItem=null; save(); renderGrades()}
+function gbCsv(){
+  const g=G(), b=GB(g), hj=UI.gbHJ, sts=gbStudents(g), L=p=>p==null?'':glbl(g,p), A=x=>x==null?'':avgTxt(g,x);
+  let rows;
+  if(hj==='y'){rows=[['Name','1. Halbjahr','2. Halbjahr','Jahresnote berechnet','Zeugnisnote','Begründung']].concat(sts.map(st=>{const y=yearCalc(g,st);return [st.name,L(y.a),L(y.c),L(y.y),L(y.fin),y.ov&&y.ov.why||'']}))}
+  else{const items=b.items.filter(it=>it.date&&inHJ(it.date,hj)).sort((x,y)=>x.date.localeCompare(y.date));
+    const head=['Name'];const wI=items.filter(it=>it.part==='w');wI.forEach(it=>head.push(`${it.name} (${ddmm(it.date)})`));head.push('Ø schriftlich');
+    b.cats.forEach(c=>{if(c.auto){head.push(c.name);return}items.filter(it=>it.part==='a'&&it.cat===c.id).forEach(it=>head.push(`${it.name} (${ddmm(it.date)})`));head.push('Ø '+c.name)});
+    head.push('Ø AT','berechnet','Halbjahresnote');
+    rows=[head].concat(sts.map(st=>{const r=hjCalc(g,hj,st);const row=[st.name];const cv=it=>{const c=cellState(g,it,st.id);return c.k==='e'?'E':c.k==='u'?'U (6)':L(c.p)};
+      wI.forEach(it=>row.push(cv(it)));row.push(A(r.W));
+      b.cats.forEach(c=>{const x=r.cats.find(y=>y.c.id===c.id);if(c.auto){row.push(A(x.val));return}items.filter(it=>it.part==='a'&&it.cat===c.id).forEach(it=>row.push(cv(it)));row.push(A(x.val))});
+      row.push(A(r.A),A(r.H),L(r.fin));return row}))}
+  const head=[['Lerngruppe',g.name],['Zeitraum',hj==='y'?'Schuljahr':hj+'. Halbjahr'],['Gewichtung',`schriftlich ${b.wW} %, AT ${100-b.wW} % (${b.cats.map(c=>c.name+' '+c.w+' %').join(', ')})`],[]];
+  openExport(`AT_${slug(g.name)}_Noten_${hj==='y'?'Schuljahr':hj+'HJ'}_${todayStr()}.csv`,csv(head.concat(rows)),'text/csv');
+}
+/* Word-Übersicht (.docx) – gebaut mit JSZip */
+function loadZip(){return new Promise((res,rej)=>{if(window.JSZip)return res(window.JSZip);const sc=document.createElement('script');
+  sc.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';sc.onload=()=>res(window.JSZip);sc.onerror=()=>rej(new Error('JSZip'));document.head.appendChild(sc)})}
+const xe=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const wRun=(t,o={})=>`<w:r><w:rPr>${o.b?'<w:b/>':''}${o.i?'<w:i/>':''}${o.sz?`<w:sz w:val="${o.sz}"/>`:''}${o.c?`<w:color w:val="${o.c}"/>`:''}</w:rPr><w:t xml:space="preserve">${xe(t)}</w:t></w:r>`;
+const wP=(runs,o={})=>`<w:p><w:pPr>${o.sp!=null?`<w:spacing w:before="${o.sp}" w:after="${o.after??80}"/>`:''}${o.keep?'<w:keepNext/>':''}</w:pPr>${runs}</w:p>`;
+function wTable(rows,widths){
+  const tc=(cell,w,o)=>`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${o.shade?`<w:shd w:val="clear" w:color="auto" w:fill="${o.shade}"/>`:''}</w:tcPr><w:p><w:pPr><w:spacing w:before="40" w:after="40"/></w:pPr>${wRun(cell,{b:o.b,i:o.i})}</w:p></w:tc>`;
+  return `<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a,b)=>a+b,0)}" w:type="dxa"/><w:tblBorders>${['top','left','bottom','right','insideH','insideV'].map(k=>`<w:${k} w:val="single" w:sz="4" w:color="BFC8C6"/>`).join('')}</w:tblBorders><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>
+    <w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${rows.map(r=>`<w:tr>${r.cells.map((c,i)=>tc(c,widths[i],r)).join('')}</w:tr>`).join('')}</w:tbl>`;
+}
+function kidDocBody(g,st){
+  const b=GB(g), L=p=>p==null?'–':glbl(g,p), A=x=>avgTxt(g,x);
+  const [y0]=halfYear(1); const sy=`${y0.slice(0,4)}/${String(+y0.slice(0,4)+1).slice(2)}`;
+  let x=wP(wRun('Notenübersicht',{b:1,sz:36}),{sp:0,after:60})+wP(wRun(`${st.name} · ${g.name} · Schuljahr ${sy} · Stand ${fmtDate(todayStr())}`,{c:'5A6B68'}),{sp:0,after:200});
+  [1,2].forEach(hj=>{const r=hjCalc(g,hj,st); const has=r.items.length||r.cats.some(c=>c.val!=null);
+    x+=wP(wRun(`${hj}. Halbjahr`,{b:1,sz:28}),{sp:200,after:100,keep:1});
+    if(!has){x+=wP(wRun('Noch keine Noten.',{i:1,c:'5A6B68'}));return}
+    const rows=[{cells:['Bereich','Leistung','Datum','Note'],b:1,shade:'E6ECEA'}];
+    const cv=it=>{const c=cellState(g,it,st.id);return c.k==='e'?'fehlt (schreibt nach)':c.k==='u'?'6 (unentschuldigt)':L(c.p)};
+    const wI=r.items.filter(it=>it.part==='w');
+    wI.forEach(it=>rows.push({cells:['Schriftlich',it.name,fmtDate(it.date),cv(it)]}));
+    rows.push({cells:[`Schriftlicher Teil (${fmtNum(b.wW)} %)`,'Durchschnitt','',A(r.W)],b:1});
+    r.cats.forEach(c=>{if(c.c.auto){rows.push({cells:[c.c.name,c.ov!=null?'festgelegt':`Durchschnitt aus ${c.auto.n} Stunden`,'',c.val==null?'–':(c.ov!=null?L(c.ov):A(c.val))]});return}
+      const its=r.items.filter(it=>it.part==='a'&&it.cat===c.c.id); its.forEach(it=>rows.push({cells:[c.c.name,it.name,fmtDate(it.date),cv(it)]}));
+      if(its.length>1) rows.push({cells:[c.c.name,'Durchschnitt','',A(c.val)],i:1})});
+    rows.push({cells:[`Allgemeiner Teil (${fmtNum(100-b.wW)} %)`,'Durchschnitt','',A(r.A)],b:1});
+    rows.push({cells:['Halbjahresnote','','',L(r.fin)],b:1,shade:'F3F6F5'});
+    x+=wTable(rows,[2800,3300,1300,1600]);
+    let ab=0,ue=0,lt=0; g.lessons.forEach(l=>{if(!inHJ(l.date,hj)||!inLesson(l,st))return;const e=l.e[st.id];if(!e)return;if(e.st==='e')ab++;else if(e.st==='u')ue++;else if(e.late>0)lt++});
+    x+=wP(wRun(`Fehlstunden: ${ab} entschuldigt, ${ue} unentschuldigt · Verspätungen: ${lt}`,{c:'5A6B68',sz:20}),{sp:80});
+  });
+  const y=yearCalc(g,st);
+  x+=wP(wRun('Zeugnisnote (Jahresnote): ',{b:1,sz:26})+wRun(L(y.fin),{b:1,sz:26}),{sp:240});
+  if(y.ov&&y.ov.p!=null) x+=wP(wRun(`Berechnet: ${L(y.y)}. Begründung: ${y.ov.why||'–'}`,{c:'5A6B68'}));
+  return x;
+}
+async function gbWord(all){
+  const g=G(); const sts=all?gbStudents(g):gbStudents(g).filter(s=>s.id===($('#gbKid')||{}).value);
+  if(!sts.length) return;
+  let Z; try{Z=await loadZip()}catch(e){alertBox('Für die Word-Datei wird einmalig eine Internetverbindung gebraucht. Danach klappt es auch offline.');return}
+  const body=sts.map(st=>kidDocBody(g,st)).join('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
+  const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  const z=new Z();
+  z.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
+  z.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+  z.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  z.file('word/styles.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:sz w:val="22"/><w:lang w:val="de-DE"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="80"/></w:pPr></w:pPrDefault></w:docDefaults></w:styles>');
+  z.file('word/document.xml',doc);
+  const blob=await z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  openExport(`Notenuebersicht_${slug(g.name)}_${all?'alle':slug(sts[0].name)}_${todayStr()}.docx`,'','application/vnd.openxmlformats-officedocument.wordprocessingml.document',false,blob);
+}
+
 /* ---------- Sitzplan ---------- */
 function ring(key){
   const p=pending.get(key); if(!p) return '';
@@ -1133,7 +1354,7 @@ function stats(g,ls){
       if(e.st==='p'&&e.late>0){r.lc++;r.lm+=e.late}
       for(const k of CK) r[k]+=cnt(e,k);
     });
-    if(ls.length===1){const gr=gradeOf(g,ls[0].e[st.id]);r.gtxt=gr?gr.txt:'–';r.gv=gr?gr.pts:-1;}
+    if(ls.length===1){const gr=lessonGrade(g,ls[0],st.id);r.gtxt=gr?gr.txt:'–';r.gv=gr?gr.pts:-1;r.gr=gr;r.lid=ls[0].id;}
     if(ls.length===1){const e=ls[0].e[st.id];r.status=!e||e.st==='p'?(e&&e.late>0?`verspätet ${e.late} Min.`:'anwesend'):(e.st==='e'?'fehlt entsch.':'fehlt unentsch.')}
     return r;
   });
@@ -1168,7 +1389,8 @@ function renderTable(){
     <tbody>${rows.length?rows.map(r=>`<tr>${cols.map(([k])=>{const val=r[k];
         if(k==='name') return `<td class="${r.st.archived?'arch':''}">${esc(val)}${r.st.archived?' (entfernt)':''}</td>`;
         if(k==='status') return `<td>${esc(val)}</td>`;
-        if(k==='gv') return `<td><b>${esc(r.gtxt)}</b></td>`;
+        if(k==='gv'){if(!r.gr) return '<td class="z">–</td>';const cur=r.gr.ov?'p:'+r.gr.pts:'';
+          return `<td><select class="gsel${r.gr.ov?' ov':''}" data-lgo="${r.st.id}" data-l="${r.lid}" aria-label="Stundennote ${esc(r.name)}">${gopts(g,cur,`auto: ${r.gr.auto?r.gr.auto.txt:'–'}`)}</select></td>`}
         return `<td class="${val?'':'z'}">${val}</td>`}).join('')}</tr>`).join(''):`<tr><td colspan="${cols.length}" class="muted">Keine Daten.</td></tr>`}</tbody></table></div>
     <p class="note">„Stunden“ zählt nur die Stunden, in denen das Kind laut Sitzplan dabei war. Bei Teilungsunterricht haben die Kinder daher unterschiedliche Stundenzahlen.</p>
     ${UI.mode==='single'?`<p class="note"><b>Note</b> ist ein Vorschlag aus Ausgangsnote und Gewichtung (oben unter „Gewichtung der Note einstellen“). Verspätung und Störung zählen nicht. Bei Fehlen gibt es keine Note.</p>`:`<p class="note">Die Zeitraum-Übersicht enthält keine Note. Noten pro Stunde siehst du unter „Einzelstunde“.</p>`}`;
@@ -1204,25 +1426,25 @@ function backupJSON(){
   openExport(`AT-Tool_Sicherung_${todayStr()}.json`,JSON.stringify(data,null,1),'application/json',true);
 }
 let EXP=null;
-function openExport(name,text,mime,isBackup){
-  EXP={name,text,mime,isBackup};
+function openExport(name,text,mime,isBackup,blob){
+  EXP={name,text,mime,isBackup,blob};
   $('#dlg').innerHTML=`<h2>Exportieren</h2><p style="margin:0"><b>${esc(name)}</b></p>
     <p class="muted" style="margin:0;font-size:14px">Auf dem iPad: „Teilen“ → AirDrop an dein MacBook oder „In Dateien sichern“ → iCloud Drive. iCloud überträgt die Datei automatisch, sobald Internet da ist.</p>
-    <div class="row2"><button class="btn primary" data-do="expShare">Teilen / AirDrop</button><button class="btn" data-do="expSave">Datei speichern</button><button class="btn" data-do="expCopy">Kopieren</button><button class="btn" data-do="expClose" style="margin-left:auto">Schließen</button></div>
+    <div class="row2"><button class="btn primary" data-do="expShare">Teilen / AirDrop</button><button class="btn" data-do="expSave">Datei speichern</button>${blob?'':'<button class="btn" data-do="expCopy">Kopieren</button>'}<button class="btn" data-do="expClose" style="margin-left:auto">Schließen</button></div>
     <div class="msg" id="expMsg" role="status"></div>
-    <textarea id="expText" readonly aria-label="Inhalt"></textarea>`;
-  $('#expText').value=text; $('#overlay').hidden=false;
+    ${blob?'':'<textarea id="expText" readonly aria-label="Inhalt"></textarea>'}`;
+  if(!blob) $('#expText').value=text; $('#overlay').hidden=false;
 }
 function markBackup(){if(EXP&&EXP.isBackup){S.lastBackup=new Date().toISOString();save()}}
 const expMsg=t=>{const m=$('#expMsg');if(m)m.textContent=t};
 async function expShare(){
-  try{const f=new File([EXP.text],EXP.name,{type:EXP.mime});
+  try{const f=new File([EXP.blob||EXP.text],EXP.name,{type:EXP.mime});
     if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:EXP.name});markBackup();expMsg('Geteilt.')}
     else expMsg('Teilen geht hier nicht. Nutze „Datei speichern“ oder „Kopieren“.');
   }catch(e){if(e&&e.name==='AbortError')return;expMsg('Teilen geht hier nicht. Nutze „Datei speichern“ oder „Kopieren“.')}
 }
 function expSave(){
-  try{const url=URL.createObjectURL(new Blob([EXP.text],{type:EXP.mime+';charset=utf-8'}));
+  try{const url=URL.createObjectURL(EXP.blob||new Blob([EXP.text],{type:EXP.mime+';charset=utf-8'}));
     const a=document.createElement('a');a.href=url;a.download=EXP.name;document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),5000);markBackup();
     expMsg('Download angestoßen. Falls nichts erscheint, nutze „Kopieren“.');
@@ -1301,6 +1523,8 @@ const CONFIRM={
   ttDelVer(){S.timetables=S.timetables.filter(t=>t.id!==UI.ttVer);UI.ttVer=(S.timetables[0]||{}).id;save();renderWeek()},
   ttCellDel(){const ver=S.timetables.find(t=>t.id===UI.ttVer),{d,p}=UI.ttCell;ver.slots=ver.slots.filter(y=>!(y.d===d&&y.p===p));ttCellClose();save();renderWeek()},
   freeDel(i){S.free.splice(+i,1);save();renderWeek()},
+  gbItemDel(){const b=GB(G());b.items=b.items.filter(x=>x.id!==UI.gbItem);$('#sheet').hidden=true;UI.gbItem=null;save();renderGrades()},
+  catDel(id){const b=GB(G());if(b.cats.length<2)return;b.cats=b.cats.filter(c=>c.id!==id);b.items.forEach(it=>{if(it.cat===id){it.part='a';it.cat=b.cats[0].id}});save();renderGrades()},
   layDelete(){const g=G();const id=g.layoutId;g.layouts=g.layouts.filter(x=>x.id!==id);g.layoutId=g.layouts[0].id;save();closeEditor()},
   fxDelete(){const lay=LY(G());lay.fixtures=(lay.fixtures||[]).filter(f=>f.id!==UI.fxSel);save();closeEditor()},
   deleteStudent(){const g=G(),sid=UI.editSid;g.students=g.students.filter(s=>s.id!==sid);g.layouts.forEach(x=>{delete x.seats[sid]});g.lessons.forEach(l=>{delete l.e[sid];if(l.members)l.members=l.members.filter(i=>i!==sid)});
@@ -1335,6 +1559,9 @@ const DO={
     S.timetables=S.timetables.filter(t=>t.from!==f);const t={id:uid(),from:f,slots:src?src.slots.map(x=>({...x})):[],duties:src?(src.duties||[]).map(x=>({...x})):[]};S.timetables.push(t);UI.ttVer=t.id;save();renderWeek()},
   ttCellSave, ttCellCancel(){ttCellClose()}, ttCreateGroups,
   freeAdd(){S.free.push({from:todayStr(),to:todayStr(),label:'Studientag'});save();renderWeek()},
+  gbItemNew(){gbItemSheet(null)}, gbItemSave, gbItemClose(){$('#sheet').hidden=true;UI.gbItem=null}, gbCsv,
+  gbWordKid(){gbWord(false)}, gbWordAll(){gbWord(true)},
+  catAdd(){GB(G()).cats.push({id:uid(),name:'Neue Kategorie',w:0});save();renderGrades()},
   csvProto, sendMac:captureJSON, sendPhone:rosterJSON,
   unitNew(){const g=G();const u={id:uid(),title:`Reihe ${UN(g).length+1}`,items:[]};UN(g).push(u);g.unitId=u.id;save();renderUnit();const t=$('#uTitle');if(t){t.focus();t.select()}},
   unitAdd(){const g=G(),u=curUnit(g),ta=$('#uAdd');if(!u)return;ta.value.split('\n').map(x=>x.trim()).filter(Boolean).forEach(t=>u.items.push({id:uid(),topic:t}));save();renderUnit()},
@@ -1355,7 +1582,7 @@ const DO={
   expClose(){$('#overlay').hidden=true;EXP=null;if(S.ui.view==='data')renderData()}
 };
 
-function renderAll(){renderBar();if(S.ui.view==='plan')renderPlan();if(S.ui.view==='unit')renderUnit();if(S.ui.view==='week')renderWeek();if(S.ui.view==='table')renderTable();if(S.ui.view==='data')renderData()}
+function renderAll(){renderBar();if(S.ui.view==='plan')renderPlan();if(S.ui.view==='unit')renderUnit();if(S.ui.view==='week')renderWeek();if(S.ui.view==='table')renderTable();if(S.ui.view==='grades')renderGrades();if(S.ui.view==='data')renderData()}
 
 /* ---------- Ereignisse ---------- */
 document.addEventListener('click',ev=>{
@@ -1367,6 +1594,8 @@ document.addEventListener('click',ev=>{
   const c=t.closest('[data-confirm]'); if(c&&CONFIRM[c.dataset.confirm]){arm(c,()=>CONFIRM[c.dataset.confirm](c.dataset.id));return}
   const wk=t.closest('[data-wk]'); if(wk){const [ds,p]=wk.dataset.wk.split('|');const x=slotsOn(ds).find(y=>y.p===+p);const g=slotGroup(x);if(g)openOrCreate(g,x,ds);return}
   const tc=t.closest('[data-ttcell]'); if(tc){const [d,p]=tc.dataset.ttcell.split('|').map(Number);UI.ttG=undefined;UI.ttLay=null;UI.ttTmp=null;ttCellSheet(d,p);return}
+  const gh=t.closest('[data-gbhj]'); if(gh){UI.gbHJ=gh.dataset.gbhj==='y'?'y':+gh.dataset.gbhj;renderGrades();return}
+  const gi=t.closest('[data-gbitem]'); if(gi){gbItemSheet(gi.dataset.gbitem);return}
   const mv=t.closest('[data-mv]'); if(mv){const u=curUnit(G()),i=u.items.findIndex(x=>x.id===mv.dataset.mv),j=i+(+mv.dataset.d);
     if(j>=0&&j<u.items.length){[u.items[i],u.items[j]]=[u.items[j],u.items[i]];save();renderUnit()}return}
   const pick=t.closest('[data-pick]'); if(pick){S.ui.groupId=pick.dataset.pick;S.ui.view='plan';UI.edit=false;save();renderAll();return}
@@ -1392,12 +1621,22 @@ document.addEventListener('change',ev=>{
   else if(t.id==='ttVerSel'){UI.ttVer=t.value;renderWeek()}
   else if(t.dataset.free){const [i,f]=t.dataset.free.split('|');const x=S.free[+i];if(x){x[f]=t.value;if(f==='from'&&(!x.to||x.to<x.from))x.to=x.from;save();renderWeek()}}
   else if(t.dataset.per){const [n,f]=t.dataset.per.split('|');const x=per(+n);if(x&&t.value){x[f]=t.value;save()}}
+  else if(t.dataset.lgo){const g=G(),l=g.lessons.find(x=>x.id===t.dataset.l);if(l){l.gOv=l.gOv||{};if(t.value)l.gOv[t.dataset.lgo]=+t.value.slice(2);else delete l.gOv[t.dataset.lgo];save();renderTable()}}
+  else if(t.dataset.gbv){const [iid,sid]=t.dataset.gbv.split('|');const it=GB(G()).items.find(x=>x.id===iid);if(it){if(!t.value)delete it.v[sid];else if(t.value[0]==='p')it.v[sid]={p:+t.value.slice(2)};else it.v[sid]={s:t.value.slice(2)};save();renderGrades()}}
+  else if(t.dataset.mov){const b=GB(G());if(t.value)b.mitOv[UI.gbHJ][t.dataset.mov]=+t.value.slice(2);else delete b.mitOv[UI.gbHJ][t.dataset.mov];save();renderGrades()}
+  else if(t.dataset.hov){const b=GB(G());if(t.value)b.hjOv[UI.gbHJ][t.dataset.hov]=+t.value.slice(2);else delete b.hjOv[UI.gbHJ][t.dataset.hov];save();renderGrades()}
+  else if(t.dataset.yov){const b=GB(G()),id=t.dataset.yov;if(t.value){b.yOv[id]=Object.assign(b.yOv[id]||{},{p:+t.value.slice(2)})}else delete b.yOv[id];save();renderGrades()}
+  else if(t.dataset.ywhy){const b=GB(G());if(b.yOv[t.dataset.ywhy]){b.yOv[t.dataset.ywhy].why=t.value;save()}}
+  else if(t.id==='gbW'){const b=GB(G());b.wW=Math.max(0,Math.min(100,numIn(t.value)));save();renderGrades()}
+  else if(t.dataset.cat){const [id,f]=t.dataset.cat.split('|');const c=GB(G()).cats.find(x=>x.id===id);if(c){c[f]=f==='w'?Math.max(0,numIn(t.value)):(t.value.trim()||c.name);save();renderGrades()}}
+  else if(t.dataset.catauto){GB(G()).cats.forEach(c=>c.auto=c.id===t.dataset.catauto);save();renderGrades()}
+  else if(t.id==='gbKid'){UI.gbKid=t.value}
   else if(t.id==='uSel'){G().unitId=t.value;save();renderUnit()}
   else if(t.id==='tLay'){UI.layF=t.value||null;renderTable()}
   else if(t.id==='laySel'){const g=G();g.layoutId=t.value;const l=L(g);if(l){l.layout=t.value;l.members=members(g).map(s=>s.id)}pending.clear();$('#sheet').hidden=true;save();renderPlan()}
   else if(t.id==='cdSel'){S.settings.cd=+t.value;save()}
   else if(t.id==='viewSel'){S.settings.view=t.value;save();renderAll()}
-  else if(t.id==='gScale'){GR(G()).scale=t.value;save();if(S.ui.view==='table')renderTable();else renderData()}
+  else if(t.id==='gScale'){GR(G()).scale=t.value;save();if(S.ui.view==='table')renderTable();else if(S.ui.view==='grades')renderGrades();else renderData()}
   else if(t.id==='gBase'){const v=Math.max(0.67,Math.min(6,+t.value));GR(G()).base=v;save();if(S.ui.view==='table')renderTable()}
   else if(t.dataset.gw){const v=Math.max(0,Math.abs(numIn(t.value)));GR(G()).w[t.dataset.gw]=v;t.value=fmtNum(v);save();if(S.ui.view==='table')renderTable()}
   else if(t.dataset.rename){const x=S.groups.find(g=>g.id===t.dataset.rename);if(x&&t.value.trim()){x.name=t.value.trim();save();renderBar()}}
@@ -1426,7 +1665,7 @@ stage.addEventListener('pointerdown',onDown);
 stage.addEventListener('pointermove',onMove);
 stage.addEventListener('pointerup',onUp);
 stage.addEventListener('pointercancel',onUp);
-document.addEventListener('toggle',ev=>{if(ev.target.id==='gwBox')UI.gwOpen=ev.target.open},true);
+document.addEventListener('toggle',ev=>{if(ev.target.id==='gwBox')UI.gwOpen=ev.target.open;if(ev.target.id==='gbBox')UI.gbOpen=ev.target.open},true);
 let rt,lastCp=null;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{const cp=isCompact();if(cp!==lastCp){lastCp=cp;renderAll()}else if(S.ui.view==='plan'&&!cp)sizeRoom()},80)});
 
 /* Bildschirm wach halten */
