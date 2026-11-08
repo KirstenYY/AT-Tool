@@ -172,6 +172,41 @@ main{padding-block:14px 48px;padding-left:max(16px,env(safe-area-inset-left,0px)
 body.compact .bar{gap:8px 10px;position:static}
 body.compact .brand-t small{display:none}
 body.compact .lesson .fld:has(#lStart){display:none}
+.wctl{align-items:flex-end;margin-bottom:10px}
+.wctl .sp{flex:1}
+.wtitle{display:flex;flex-direction:column;line-height:1.15;min-width:9em;font-variant-numeric:tabular-nums}
+.wtitle b{font-family:var(--font-display);font-size:17px}
+.wtitle .muted{font-size:13px}
+table.week{table-layout:fixed;min-width:760px}
+table.week th,table.week td{white-space:normal;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);border-left:1px solid var(--line);padding:5px 6px}
+table.week thead th{cursor:default;font-size:12px;letter-spacing:.04em;color:var(--fg)}
+table.week thead th small{display:block;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none;font-size:12px}
+table.week thead th.today{background:color-mix(in oklab,var(--accent) 14%,var(--surface))}
+table.week .pcol{width:58px;position:static;background:var(--surface-2);border-left:0}
+table.week .pcol b{font-family:var(--font-display);font-size:16px;margin-right:4px}
+table.week .pcol small{color:var(--muted);font-size:10.5px;line-height:1.2;display:inline-block;vertical-align:top;font-weight:400}
+table.week td:first-child{position:static}
+.slot{height:62px;font-size:12px;line-height:1.25;background:var(--surface)}
+.slot.today{background:color-mix(in oklab,var(--accent) 6%,var(--surface))}
+.slot[style*="--h"]{background:color-mix(in oklab,hsl(var(--h) 65% 50%) 16%,var(--surface));box-shadow:inset 3px 0 0 hsl(var(--h) 55% 45%)}
+.slot.act{cursor:pointer}
+.slot.act:hover{filter:brightness(.97)}
+.slot.term{background:var(--surface-2);color:var(--muted)}
+.slot.free{background:repeating-linear-gradient(135deg,var(--surface-2) 0 8px,var(--surface) 8px 16px);color:var(--muted);font-weight:700}
+.slot.edit{cursor:pointer}
+.slot.empty .plus{color:var(--muted);font-size:18px;opacity:.5}
+.slot span{display:block;overflow:hidden;text-overflow:ellipsis}
+.shead{white-space:nowrap}
+.sgrp{color:var(--muted)}
+.slay{font-weight:700;font-size:11px;color:var(--muted)}
+.swarn{color:var(--bad);font-weight:700;font-size:11px}
+.sinfo{margin-top:2px;display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal}
+.sinfo.plan{font-style:italic;color:var(--muted)}
+.sinfo.held{font-weight:700;color:var(--good)}
+.sinfo.miss{color:var(--muted);opacity:.7}
+.sgo{display:inline-block!important;margin-top:3px;padding:1px 8px;border-radius:99px;background:var(--accent);color:var(--accent-fg);font-weight:700;font-size:11px}
+.duty{font-size:10.5px;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.04em}
+.rsum{padding:8px 12px;border-radius:10px;background:var(--surface-2);font-size:14px}
 .legend{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
 .legend h3{margin-bottom:10px}
 .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:8px 20px}
@@ -251,6 +286,7 @@ td.arch{color:var(--muted);font-style:italic}
   <div class="lesson" id="lessonBox"></div>
   <nav class="tabs" role="tablist" aria-label="Ansicht">
     <button role="tab" data-view="plan">Sitzplan</button>
+    <button role="tab" data-view="week">Stundenplan</button>
     <button role="tab" data-view="unit">Planung</button>
     <button role="tab" data-view="table">Tabelle</button>
     <button role="tab" data-view="data">Daten</button>
@@ -265,6 +301,7 @@ td.arch{color:var(--muted);font-style:italic}
     <div class="doc" id="docPanel"></div>
     <div class="legend" id="legend"></div>
   </section>
+  <section id="vWeek" hidden></section>
   <section id="vUnit" hidden></section>
   <section id="vTable" hidden></section>
   <section id="vData" hidden></section>
@@ -328,6 +365,21 @@ function ensureLayouts(g){
   g.lessons.forEach(l=>{if(!l.layout)l.layout=lay.id});
 }
 
+/* ---------- Stundenplan: Grunddaten ---------- */
+const DEF_PERIODS=[['08:00','08:45'],['08:50','09:35'],['09:55','10:40'],['10:45','11:30'],['11:50','12:35'],['12:40','13:25'],['13:35','14:20'],['14:30','15:15'],['15:25','16:10'],['16:15','17:00'],['17:00','17:45']].map((x,i)=>({n:i+1,s:x[0],e:x[1]}));
+// Berlin, Schuljahr 2026/27 (Senatsverwaltung; über die Ansicht „Stundenplan“ änderbar)
+const BERLIN_FREE=[
+  {from:'2026-10-19',to:'2026-10-31',label:'Herbstferien'},
+  {from:'2026-12-23',to:'2027-01-02',label:'Weihnachtsferien'},
+  {from:'2027-02-01',to:'2027-02-06',label:'Winterferien'},
+  {from:'2027-03-08',to:'2027-03-08',label:'Internationaler Frauentag'},
+  {from:'2027-03-22',to:'2027-04-02',label:'Osterferien'},
+  {from:'2027-05-06',to:'2027-05-06',label:'Christi Himmelfahrt'},
+  {from:'2027-05-07',to:'2027-05-07',label:'unterrichtsfrei'},
+  {from:'2027-05-17',to:'2027-05-17',label:'Pfingstmontag'},
+  {from:'2027-05-18',to:'2027-05-19',label:'Pfingstferien'},
+  {from:'2027-07-01',to:'2027-08-14',label:'Sommerferien'}];
+
 /* ---------- Speicher ---------- */
 const KEY='attool.v1';
 let S=null, storageOK=true;
@@ -335,6 +387,7 @@ function load(){
   try{const raw=localStorage.getItem(KEY); if(raw) S=JSON.parse(raw);}catch(e){storageOK=false}
   if(!S||!Array.isArray(S.groups)) S=seed();
   S.groups.forEach(ensureLayouts);
+  S.periods=S.periods||DEF_PERIODS.map(x=>({...x})); S.free=S.free||BERLIN_FREE.map(x=>({...x})); S.timetables=S.timetables||[];
   S.settings=Object.assign({cd:3},S.settings||{});
   S.active=S.active||{}; S.ui=Object.assign({view:'plan'},S.ui||{});
   if(!S.groups.find(g=>g.id===S.ui.groupId)) S.ui.groupId=S.groups[0]?S.groups[0].id:null;
@@ -363,15 +416,18 @@ function seed(){
     });
     g.lessons.push(l); return l;
   };
-  const today=new Date(), topics=['Variablen','Bedingungen','Schleifen','Listen','Funktionen','Debugging'];
-  for(let w=6;w>=1;w--){const d=new Date(today);d.setDate(d.getDate()-7*w);const d2=new Date(d);d2.setDate(d.getDate()-2);
-    mk(dstr(d),'08:00',topics[6-w],false,g.layouts[0]); mk(dstr(d2),'10:00',topics[6-w]+' (Praxis)',false,la); mk(dstr(d2),'11:40',topics[6-w]+' (Praxis)',false,lb);}
+  const today=new Date(); today.setDate(today.getDate()-((today.getDay()+2)%7)); // letzter Freitag
+  const topics=['Variablen','Bedingungen','Schleifen','Listen','Funktionen','Debugging'];
+  for(let w=5;w>=0;w--){const d=new Date(today);d.setDate(d.getDate()-7*w);const d2=new Date(d);d2.setDate(d.getDate()-2);
+    mk(dstr(d),'08:00',topics[5-w],false,g.layouts[0]); mk(dstr(d2),'09:55',topics[5-w]+' (Praxis)',false,la); mk(dstr(d2),'11:50',topics[5-w]+' (Praxis)',false,lb);}
   const unit={id:uid(),title:'Programmieren mit Python (Beispiel)',items:[...topics,'Wiederholung und Übung','Rekursion','Projektphase','Lernerfolgskontrolle'].map(t=>({id:uid(),topic:t}))};
   g.units=[unit]; g.unitId=unit.id;
   g.lessons.forEach(l=>{const it=unit.items.find(x=>l.topic===x.topic||l.topic===x.topic+' (Praxis)');if(it)l.plan={u:unit.id,i:it.id};
     if(l.layout===g.layouts[0].id)l.doc='Einstieg mit Codebeispiel, Erarbeitung in Partnerarbeit, Sicherung an der Tafel.'});
   const cur=mk(todayStr(),'08:00',unit.items[6].topic,true,g.layouts[0]); cur.plan={u:unit.id,i:unit.items[6].id};
   const s={groups:[g],active:{},settings:{cd:3},ui:{view:'plan',groupId:g.id}};
+  const sl=(d,p,lay,room)=>({d,p,cls:'9b',sub:'Inf',room,g:g.id,lay:lay.id});
+  s.timetables=[{id:uid(),from:'2026-08-31',slots:[sl(5,1,g.layouts[0],'R 204'),sl(3,3,la,'Inf-Raum'),sl(3,5,lb,'Inf-Raum')],duties:[]}];
   s.active[g.id]=cur.id; return s;
 }
 
@@ -450,18 +506,31 @@ function renderBar(){
   } else {
     box.innerHTML=`<span class="muted" style="align-self:center">Keine Stunde geöffnet.</span><button class="btn primary" data-do="newLesson">Stunde starten</button>`;
   }
-  const cp=isCompact(); if(cp&&(S.ui.view==='unit'||S.ui.view==='table')) S.ui.view='plan';
-  document.querySelectorAll('.tabs button').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.view===S.ui.view));b.hidden=cp&&(b.dataset.view==='unit'||b.dataset.view==='table');b.textContent=b.dataset.view==='plan'?(cp?'Erfassen':'Sitzplan'):b.textContent});
+  const cp=isCompact(); if(cp&&(S.ui.view==='unit'||S.ui.view==='table'||S.ui.view==='week')) S.ui.view='plan';
+  document.querySelectorAll('.tabs button').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.view===S.ui.view));b.hidden=cp&&(b.dataset.view==='unit'||b.dataset.view==='table'||b.dataset.view==='week');b.textContent=b.dataset.view==='plan'?(cp?'Erfassen':'Sitzplan'):b.textContent});
   document.body.classList.toggle('compact',cp);
-  $('#vPlan').hidden=S.ui.view!=='plan'; $('#vUnit').hidden=S.ui.view!=='unit'; $('#vTable').hidden=S.ui.view!=='table'; $('#vData').hidden=S.ui.view!=='data';
+  $('#vPlan').hidden=S.ui.view!=='plan'; $('#vUnit').hidden=S.ui.view!=='unit'; $('#vWeek').hidden=S.ui.view!=='week'; $('#vTable').hidden=S.ui.view!=='table'; $('#vData').hidden=S.ui.view!=='data';
+}
+function createLesson(g,layId,ds,start){
+  if(g.layouts.find(x=>x.id===layId)) g.layoutId=layId;
+  const lay=LY(g);
+  const l={id:uid(),date:ds,start,topic:'',e:{},layout:lay.id,members:members(g).map(s=>s.id)};
+  const nx=nextItem(g,lay.id); if(nx){l.plan={u:nx.u.id,i:nx.it.id};l.topic=nx.it.topic}
+  g.lessons.push(l); S.ui.groupId=g.id; S.active[g.id]=l.id; UI.edit=false; pending.clear();
+  save(); S.ui.view='plan'; renderAll(); keepAwake();
+}
+function openOrCreate(g,s,ds){
+  const ex=lessonAt(g,s,ds);
+  if(ex){S.ui.groupId=g.id;S.active[g.id]=ex.id;if(g.layouts.find(x=>x.id===ex.layout))g.layoutId=ex.layout;UI.edit=false;S.ui.view='plan';save();renderAll();return}
+  createLesson(g,s.lay||g.layoutId,ds,per(s.p).s);
 }
 function newLesson(){
   const g=G(); if(!g) return;
-  const lay=LY(g);
-  const l={id:uid(),date:todayStr(),start:nowHM(),topic:'',e:{},layout:lay.id,members:members(g).map(s=>s.id)};
-  const nx=nextItem(g,lay.id); if(nx){l.plan={u:nx.u.id,i:nx.it.id};l.topic=nx.it.topic}
-  g.lessons.push(l); S.active[g.id]=l.id; UI.edit=false; pending.clear();
-  save(); S.ui.view='plan'; renderAll(); keepAwake();
+  // Läuft laut Stundenplan gerade eine Stunde dieser Lerngruppe? Dann Sitzplan und Beginn von dort übernehmen.
+  const ds=todayStr(), now=minOf(nowHM());
+  const s=slotsOn(ds).find(x=>x.g===g.id&&per(x.p)&&now>=minOf(per(x.p).s)-15&&now<=minOf(per(x.p).e));
+  if(s){openOrCreate(g,s,ds);return}
+  createLesson(g,g.layoutId,ds,nowHM());
 }
 
 /* ---------- Reihenplanung ---------- */
@@ -471,8 +540,14 @@ const UN=g=>{g.units=g.units||[];return g.units};
 const curUnit=g=>UN(g).find(u=>u.id===g.unitId)||UN(g)[0]||null;
 const findItem=(g,pl)=>{if(!pl)return null;const u=UN(g).find(x=>x.id===pl.u);const it=u&&u.items.find(x=>x.id===pl.i);return it?{u,it}:null};
 const lessonsOf=(g,itId)=>g.lessons.filter(l=>l.plan&&l.plan.i===itId).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
-function nextItem(g,layId){const u=curUnit(g);if(!u)return null;
-  const it=u.items.find(x=>!g.lessons.some(l=>l.plan&&l.plan.i===x.id&&l.layout===layId));return it?{u,it}:null}
+// Teilgruppen (z. B. Gruppe A/B) laufen parallel: beide bekommen denselben Inhalt. Eine Stunde der ganzen Klasse gilt für alle.
+function isPart(g,layId){const lay=g.layouts.find(x=>x.id===layId);if(!lay)return false;if(lay.part!=null)return !!lay.part;
+  const n=Object.keys(lay.seats).length, L=live(g).length; return L>0?n<0.75*L:/gruppe|teil/i.test(lay.name)}
+function heldMap(g,u){const m=new Map();g.lessons.forEach(l=>{if(l.plan&&l.plan.u===u.id){if(!m.has(l.plan.i))m.set(l.plan.i,new Set());m.get(l.plan.i).add(l.layout)}});return m}
+function pickItem(g,u,layId,held){const part=isPart(g,layId);
+  return u.items.find(it=>{const S_=held.get(it.id);if(!S_||!S_.size)return true;if(!part)return false;
+    return ![...S_].some(x=>!isPart(g,x))&&!S_.has(layId)})||null}
+function nextItem(g,layId){const u=curUnit(g);if(!u)return null;const it=pickItem(g,u,layId,heldMap(g,u));return it?{u,it}:null}
 function topicEdited(l,val){const g=G();l.topic=val;const f=findItem(g,l.plan);if(f){if(UI.topicOrig==null)UI.topicOrig={lid:l.id,t:f.it.topic};f.it.topic=val}}
 function renderDoc(){
   const box=$('#docPanel'); if(!box) return; const g=G(), l=L(g);
@@ -494,14 +569,17 @@ function renderDoc(){
 function renderUnit(){
   const v=$('#vUnit'), g=G();
   if(!g){v.innerHTML='<p class="muted">Keine Lerngruppe vorhanden.</p>';return}
-  const u=curUnit(g), lay=LY(g), nx=nextItem(g,lay.id);
+  const u=curUnit(g), lay=LY(g), nx=nextItem(g,lay.id), pr=project(g);
+  const hasTT=S.timetables.some(t=>t.slots.some(x=>x.g===g.id));
+  const lastOcc=u&&u.items.length?(pr.items[u.items[u.items.length-1].id]||[])[0]:null;
+  const unplanned=u?u.items.filter(it=>!lessonsOf(g,it.id).length&&!pr.items[it.id]).length:0;
   const unitSel=UN(g).length?`<label class="fld grow"><span>Reihe</span><select id="uSel">${UN(g).map(x=>`<option value="${x.id}"${u&&x.id===u.id?' selected':''}>${esc(x.title)}</option>`).join('')}</select></label>`:'';
   const items=u?u.items.map((it,i)=>{const ls=lessonsOf(g,it.id);
       const isNext=nx&&nx.it.id===it.id;
       return `<div class="pi${ls.length?' done':''}${isNext?' next':''}">
         <span class="pn">${i+1}</span>
         <input type="text" class="grow" data-item="${it.id}" value="${esc(it.topic)}" aria-label="Inhalt Stunde ${i+1}">
-        <span class="pmeta">${ls.length?ls.map(x=>`${wd(x.date)} ${fmtDate(x.date).slice(0,6)}${g.layouts.length>1?' · '+esc(layName(g,x.layout)):''}`).join('<br>'):(isNext?`<b>nächste Stunde</b> (${esc(lay.name)})`:'offen')}</span>
+        <span class="pmeta">${ls.length?ls.map(x=>`${wd(x.date)} ${fmtDate(x.date).slice(0,6)}${g.layouts.length>1?' · '+esc(layName(g,x.layout)):''}`).join('<br>'):(pr.items[it.id]?`${isNext?'<b>nächste Stunde</b><br>':''}vorauss. ${pr.items[it.id].slice(0,3).map(o=>occTxt(g,o)).join(', ')}`:(isNext?`<b>nächste Stunde</b> (${esc(lay.name)})`:'offen'))}</span>
         <span class="pbtn"><button class="btn" data-mv="${it.id}" data-d="-1" aria-label="nach oben"${i===0?' disabled':''}>↑</button><button class="btn" data-mv="${it.id}" data-d="1" aria-label="nach unten"${i===u.items.length-1?' disabled':''}>↓</button><button class="btn danger" data-confirm="delItem" data-id="${it.id}" aria-label="löschen">✕</button></span>
       </div>`}).join(''):'';
   const proto=g.lessons.slice().sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start)).map(l=>`<div class="li"><span class="grow"><b>${wd(l.date)} ${fmtDate(l.date)}</b> · ${esc(l.start)} · ${esc(layName(g,l.layout))}<br>${esc(l.topic||'–')}${l.doc?`<br><span class="muted">${esc(l.doc)}</span>`:''}${l.hw?`<br><span class="muted">HA: ${esc(l.hw)}</span>`:''}</span><button class="btn" data-open="${l.id}">Öffnen</button></div>`).join('');
@@ -509,7 +587,9 @@ function renderUnit(){
     <div class="card"><h2>Reihenplanung · ${esc(g.name)}</h2>
       <div class="row2">${unitSel}<button class="btn" data-do="unitNew">+ Neue Reihe</button>${u?'<button class="btn danger" data-confirm="unitDel">Reihe löschen</button>':''}</div>
       ${u?`<label class="fld"><span>Titel der Reihe</span><input type="text" id="uTitle" value="${esc(u.title)}"></label>
-        <p class="muted" style="font-size:14px">Neue Stunden übernehmen automatisch den nächsten offenen Inhalt dieser Reihe, getrennt nach Sitzplan. Änderst du in der Stunde den Inhalt, ändert sich auch die Planung hier.</p>
+        <p class="muted" style="font-size:14px">Neue Stunden übernehmen automatisch den nächsten offenen Inhalt dieser Reihe. Teilgruppen bekommen denselben Inhalt. Änderst du in der Stunde den Inhalt, ändert sich auch die Planung hier.</p>
+        ${hasTT?`<div class="rsum">${u.items.length?(lastOcc?`Voraussichtliches Ende der Reihe: <b>${wd(lastOcc.ds)} ${fmtDate(lastOcc.ds)}</b>`:(unplanned?`<b>${unplanned}</b> geplante Stunde${unplanned===1?'':'n'} passen nicht mehr ins Schuljahr.`:'Alle Stunden sind gehalten.')):''}</div>`
+          :'<p class="muted" style="font-size:14px">Ordne diese Lerngruppe im Stundenplan zu, dann siehst du hier voraussichtliche Termine.</p>'}
         <div class="plist">${items||'<div class="pi muted">Noch keine Stunden geplant.</div>'}</div>
         <div class="addbox"><label class="fld"><span>Stunden hinzufügen (ein Inhalt pro Zeile)</span><textarea id="uAdd" rows="3" placeholder="Einführung Schleifen&#10;for-Schleife mit range&#10;Übung"></textarea></label><button class="btn primary" data-do="unitAdd">Hinzufügen</button></div>`
       :'<p>Lege eine Reihe an und trage die geplanten Stundeninhalte ein. Neue Stunden übernehmen dann automatisch den nächsten Inhalt.</p>'}
@@ -565,7 +645,7 @@ function rosterJSON(){
 }
 function captureJSON(){
   const cut=new Date();cut.setDate(cut.getDate()-60);const c=dstr(cut);
-  const groups=S.groups.map(g=>({id:g.id,name:g.name,lessons:g.lessons.filter(l=>l.date>=c&&Object.keys(l.e).length).map(l=>({id:l.id,date:l.date,start:l.start,layout:l.layout,members:l.members,e:l.e}))})).filter(g=>g.lessons.length);
+  const groups=S.groups.map(g=>({id:g.id,name:g.name,students:g.students.map(x=>({id:x.id,name:x.name})),layouts:g.layouts.map(x=>({id:x.id,name:x.name})),lessons:g.lessons.filter(l=>l.date>=c&&Object.keys(l.e).length).map(l=>({id:l.id,date:l.date,start:l.start,layout:l.layout,members:l.members,e:l.e}))})).filter(g=>g.lessons.length);
   const data={app:'AT-Tool',kind:'capture',exported:new Date().toISOString(),groups};
   const t=new Date();openExport(`AT-Tool_iPhone_${todayStr()}_${pad(t.getHours())}${pad(t.getMinutes())}.json`,JSON.stringify(data),'application/json');
 }
@@ -573,10 +653,17 @@ const minOf=t=>{const [h,m]=(t||'0:0').split(':').map(Number);return h*60+m};
 // Einträge vom iPhone dazuzählen. Pro iPhone-Stunde merkt sich das MacBook, was schon übernommen wurde,
 // darum ändert ein zweiter Import derselben oder einer neueren Datei nur den Unterschied.
 function importCapture(d){
-  let merged=0,created=0,taps=0,missing=0;
+  let merged=0,created=0,taps=0,unknownKids=new Set(); const missing=[];
+  const norm=x=>String(x||'').trim().toLowerCase();
   d.groups.forEach(cg=>{
-    const g=S.groups.find(x=>x.id===cg.id); if(!g){missing++;return}
-    cg.lessons.forEach(cl=>{
+    const g=S.groups.find(x=>x.id===cg.id)||S.groups.find(x=>norm(x.name)===norm(cg.name)); if(!g){missing.push(cg.name||'ohne Namen');return}
+    const kid=sid=>{if(g.students.find(s=>s.id===sid))return sid;const n=(cg.students||[]).find(x=>x.id===sid);
+      const m=n&&g.students.find(s=>!s.archived&&norm(s.name)===norm(n.name));if(!m&&n)unknownKids.add(n.name);return m?m.id:null};
+    const layMap=lid=>{if(g.layouts.find(x=>x.id===lid))return lid;const n=(cg.layouts||[]).find(x=>x.id===lid);
+      const m=n&&g.layouts.find(x=>norm(x.name)===norm(n.name));return m?m.id:g.layoutId};
+    cg.lessons.forEach(cl0=>{
+      const e2={};Object.entries(cl0.e||{}).forEach(([sid,v])=>{const k=kid(sid);if(k)e2[k]=v});
+      const cl=Object.assign({},cl0,{layout:layMap(cl0.layout),e:e2,members:cl0.members?cl0.members.map(kid).filter(Boolean):null});
       let t=g.lessons.find(l=>l.ext&&l.ext[cl.id]);
       if(!t) t=g.lessons.find(l=>l.date===cl.date&&l.layout===cl.layout&&Math.abs(minOf(l.start)-minOf(cl.start))<=90);
       if(t&&!(t.ext&&t.ext[cl.id])) merged++;
@@ -599,7 +686,168 @@ function importCapture(d){
     });
   });
   save(); renderAll();
-  alertBox(`Vom iPhone übernommen: ${merged} Stunde${merged===1?'':'n'} ergänzt, ${created} neu angelegt, ${taps} neue Einträge.${missing?` ${missing} Lerngruppe(n) gibt es auf diesem Gerät nicht.`:''}`);
+  alertBox(`Vom iPhone übernommen: ${merged} Stunde${merged===1?'':'n'} ergänzt, ${created} neu angelegt, ${taps} neue Einträge.`+
+    (missing.length?` Diese Lerngruppe${missing.length>1?'n gibt':' gibt'} es auf dem MacBook nicht: ${missing.join(', ')}. Lege sie hier mit genau diesem Namen an oder sende die Klassenliste neu ans iPhone.`:'')+
+    (unknownKids.size?` Nicht zugeordnet, weil der Name hier fehlt: ${[...unknownKids].join(', ')}.`:''));
+}
+
+/* ---------- Stundenplan ---------- */
+const addDays=(ds,n)=>{const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);return dstr(d)};
+const dow=ds=>new Date(ds+'T12:00:00').getDay();
+const mondayOf=ds=>addDays(ds,-((dow(ds)+6)%7));
+const ddmm=ds=>fmtDate(ds).slice(0,6);
+const freeOn=ds=>S.free.find(f=>f.from&&ds>=f.from&&ds<=(f.to||f.from));
+const ttOn=ds=>S.timetables.filter(t=>t.from<=ds).sort((a,b)=>b.from.localeCompare(a.from))[0]||null;
+const per=p=>S.periods.find(x=>x.n===p);
+function slotsOn(ds){const d=dow(ds);if(d===0||d===6||freeOn(ds))return[];const t=ttOn(ds);return t?t.slots.filter(x=>x.d===d).sort((a,b)=>a.p-b.p):[]}
+const slotGroup=x=>x&&x.g?S.groups.find(g=>g.id===x.g)||null:null;
+function lessonAt(g,x,ds){const pp=per(x.p);if(!pp)return null;
+  return g.lessons.find(l=>l.date===ds&&(!x.lay||l.layout===x.lay)&&Math.abs(minOf(l.start)-minOf(pp.s))<=20)||null}
+const layShort=(g,id)=>{const n=layName(g,id);return n.split(' · ')[0]};
+// Voraussichtliche Termine: kommende Stunden laut Stundenplan (ohne Ferien), Reiheninhalte der Reihe nach verteilt
+function project(g){
+  const res={occs:[],items:{},at:{}}; const today=todayStr(), end=addDays(today,330);
+  for(let ds=today;ds<=end&&res.occs.length<500;ds=addDays(ds,1))
+    slotsOn(ds).forEach(x=>{if(x.g===g.id&&!lessonAt(g,x,ds))res.occs.push({ds,p:x.p,lay:x.lay||g.layoutId})});
+  const u=curUnit(g); if(!u) return res;
+  const held=heldMap(g,u);
+  res.occs.forEach(o=>{const it=pickItem(g,u,o.lay,held); if(!it) return;
+    (res.items[it.id]=res.items[it.id]||[]).push(o); res.at[o.ds+'|'+o.p]=it;
+    if(!held.has(it.id))held.set(it.id,new Set()); held.get(it.id).add(o.lay)});
+  return res;
+}
+const occTxt=(g,o)=>`${wd(o.ds)} ${ddmm(o.ds)}${isPart(g,o.lay)?' '+esc(layShort(g,o.lay)):''}`;
+const hue=id=>{let h=7;for(const c of String(id))h=(h*31+c.charCodeAt(0))%360;return h};
+function kw(ds){const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+3-(d.getDay()+6)%7);const w1=new Date(d.getFullYear(),0,4);return 1+Math.round(((d-w1)/864e5-3+(w1.getDay()+6)%7)/7)}
+
+function renderWeek(){
+  const v=$('#vWeek'); if(!UI.weekStart) UI.weekStart=mondayOf(todayStr());
+  const ed=UI.ttEdit&&S.timetables.length; const today=todayStr();
+  let ver=null; if(ed){ver=S.timetables.find(t=>t.id===UI.ttVer)||ttOn(today)||S.timetables[0];UI.ttVer=ver.id}
+  const days=[0,1,2,3,4].map(i=>addDays(UI.weekStart,i));
+  const allSlots=S.timetables.flatMap(t=>t.slots);
+  const maxP=Math.min(S.periods.length,Math.max(8,...allSlots.map(x=>x.p)));
+  const proj={}; if(!ed) S.groups.forEach(g=>{proj[g.id]=project(g)});
+  const head=`<tr><th class="pcol"></th>${days.map((ds,i)=>{const fr=freeOn(ds);
+      return `<th class="${ds===today&&!ed?'today':''}">${['Montag','Dienstag','Mittwoch','Donnerstag','Freitag'][i]}${ed?'':`<small>${ddmm(ds)}${fr?' · '+esc(fr.label):''}</small>`}</th>`}).join('')}</tr>`;
+  let rows='';
+  for(let p=1;p<=maxP;p++){const pp=per(p)||{s:'',e:''};
+    rows+=`<tr><th class="pcol"><b>${p}</b><small>${pp.s}<br>${pp.e}</small></th>`;
+    days.forEach((ds,i)=>{const d=i+1;
+      if(ed){const x=ver.slots.find(y=>y.d===d&&y.p===p);const g=slotGroup(x);
+        const du=(ver.duties||[]).filter(y=>y.d===d&&y.after===p-1).map(y=>`<span class="duty">Aufsicht ${esc(y.label)}</span>`).join('');
+        rows+=`<td class="slot edit${x?'':' empty'}" data-ttcell="${d}|${p}"${g?` style="--h:${hue(g.id)}"`:''}>${du}${x?slotInner(x,g,null,true):'<span class="plus">+</span>'}</td>`;return}
+      const fr=freeOn(ds);
+      if(fr){rows+=`<td class="slot free">${p===1?`<span>${esc(fr.label)}</span>`:''}</td>`;return}
+      const t=ttOn(ds); const x=slotsOn(ds).find(y=>y.p===p); const g=slotGroup(x);
+      const du=t?(t.duties||[]).filter(y=>y.d===d&&y.after===p-1).map(y=>`<span class="duty">Aufsicht ${esc(y.label)}</span>`).join(''):'';
+      if(!x){rows+=`<td class="slot${ds===today?' today':''}">${du}</td>`;return}
+      const l=g?lessonAt(g,x,ds):null; const it=g&&!l?proj[g.id].at[ds+'|'+p]:null;
+      const info=l?{t:l.topic||'(ohne Inhalt)',k:'held'}:it?{t:it.topic,k:'plan'}:(g&&ds<today?{t:'nicht erfasst',k:'miss'}:null);
+      const act=g&&ds<=today;
+      rows+=`<td class="slot${ds===today?' today':''}${act?' act':''}${!g&&String(x.cls||'').startsWith('*')?' term':''}"${act?` data-wk="${ds}|${p}"`:''}${g?` style="--h:${hue(g.id)}"`:''}>${du}${slotInner(x,g,info,false,l,ds===today)}</td>`;
+    });
+    rows+='</tr>';
+  }
+  const verOpts=S.timetables.slice().sort((a,b)=>a.from.localeCompare(b.from)).map(t=>`<option value="${t.id}"${ver&&t.id===ver.id?' selected':''}>gültig ab ${fmtDate(t.from)}</option>`).join('');
+  const ctl=ed?`<div class="row2 wctl">
+      <label class="fld"><span>Stundenplan bearbeiten</span><select id="ttVerSel">${verOpts}</select></label>
+      <label class="fld"><span>Neue Version gültig ab</span><input type="date" id="ttNewFrom" value="${addDays(mondayOf(today),7)}"></label>
+      <button class="btn" data-do="ttNewVer">Version anlegen</button>
+      ${S.timetables.length>1?'<button class="btn danger" data-confirm="ttDelVer">Version löschen</button>':''}
+      <span class="sp"></span><button class="btn primary" data-do="ttEditOff">Fertig</button></div>
+      <p class="muted" style="font-size:14px;margin:0 0 10px">Tippe auf eine Stunde, um Lerngruppe und Sitzplan festzulegen. Eine neue Version gilt ab ihrem Datum, frühere Wochen behalten den alten Plan. Doppelstunden sind zwei einzelne Stunden. Bei Teilung trägst du in der ersten Stunde „Gruppe A“ und in der zweiten „Gruppe B“ ein.</p>`
+    :`<div class="row2 wctl">
+      <button class="btn" data-do="wkPrev" aria-label="Vorige Woche">‹</button>
+      <div class="wtitle"><b>KW ${kw(UI.weekStart)}</b><span class="muted">${ddmm(days[0])} – ${fmtDate(days[4])}</span></div>
+      <button class="btn" data-do="wkNext" aria-label="Nächste Woche">›</button>
+      <button class="btn" data-do="wkToday">Heute</button>
+      <span class="sp"></span>${S.timetables.length?'<button class="btn" data-do="ttEditOn">Stundenplan bearbeiten</button>':''}</div>`;
+  const emptyTT=!S.timetables.length?`<div class="banner"><p>Noch kein Stundenplan. Importiere unter „Daten“ eine Stundenplan-Datei oder lege einen leeren Plan an.</p><button class="btn primary" data-do="ttEmpty">Leeren Stundenplan anlegen</button></div>`:'';
+  const unassigned=S.timetables.some(t=>t.slots.some(x=>!x.g&&!String(x.cls||'').startsWith('*')));
+  const freeRows=S.free.slice().sort((a,b)=>(a.from||'').localeCompare(b.from||'')).map(f=>{const i=S.free.indexOf(f);
+    return `<div class="li"><input type="date" data-free="${i}|from" value="${f.from||''}" aria-label="von"><span class="muted">bis</span><input type="date" data-free="${i}|to" value="${f.to||''}" aria-label="bis"><input type="text" class="grow" data-free="${i}|label" value="${esc(f.label||'')}" aria-label="Bezeichnung"><button class="btn danger" data-confirm="freeDel" data-id="${i}" aria-label="entfernen">✕</button></div>`}).join('');
+  const perRows=S.periods.map(x=>`<div class="li"><b style="width:2em">${x.n}.</b><input type="time" data-per="${x.n}|s" value="${x.s}" aria-label="Beginn"><span class="muted">bis</span><input type="time" data-per="${x.n}|e" value="${x.e}" aria-label="Ende"></div>`).join('');
+  v.innerHTML=`${ctl}${emptyTT}
+    ${unassigned&&!ed?`<div class="banner"><p>Einige Stunden sind noch keiner Lerngruppe zugeordnet. Ohne Zuordnung gibt es keine Termine in der Reihenplanung.</p><button class="btn" data-do="ttEditOn">Zuordnen</button>${S.groups.length<20?'<button class="btn primary" data-do="ttCreateGroups">Fehlende Lerngruppen anlegen</button>':''}</div>`:''}
+    ${S.timetables.length?`<div class="tablewrap"><table class="week"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`:''}
+    ${!ed&&S.timetables.length?'<p class="note">Grün umrandet = erfasste Stunde, kursiv = voraussichtlicher Inhalt aus der Reihenplanung. Tippe auf eine Stunde von heute oder früher, um sie zu öffnen oder anzulegen.</p>':''}
+    <div class="cards" style="margin-top:14px">
+      <div class="card"><h2>Ferien &amp; freie Tage</h2>
+        <p class="muted" style="font-size:14px">Voreingestellt sind die Berliner Ferien und Feiertage 2026/27. Studientage, Projektwochen oder Klassenfahrten trägst du hier ein. An diesen Tagen werden keine Stunden eingeplant.</p>
+        <div class="list">${freeRows||'<div class="li muted">Keine Einträge.</div>'}</div>
+        <div class="row2"><button class="btn" data-do="freeAdd">+ Freien Tag hinzufügen</button></div></div>
+      <div class="card"><h2>Zeitraster</h2><div class="list">${perRows}</div></div>
+    </div>`;
+}
+function slotInner(x,g,info,edit,l,isToday){
+  const cls=esc(x.cls||''), sub=esc(x.sub||''), room=esc(x.room||'');
+  const lay=g&&x.lay&&g.layouts.length>1?`<span class="slay">${esc(layShort(g,x.lay))}</span>`:'';
+  const who=g?`<span class="sgrp">${esc(g.name)}</span>`:(String(x.cls||'').startsWith('*')?'':'<span class="swarn">keine Lerngruppe</span>');
+  const top=`<span class="shead"><b>${cls}</b> ${sub}${room?` · ${room}`:''}</span>`;
+  if(edit) return top+who+lay;
+  const inf=info?`<span class="sinfo ${info.k}">${esc(info.t)}</span>`:'';
+  const btn=g&&isToday&&!l?'<span class="sgo">Starten</span>':'';
+  return top+lay+inf+btn;
+}
+function ttCellSheet(d,p){
+  const ver=S.timetables.find(t=>t.id===UI.ttVer); const x=ver.slots.find(y=>y.d===d&&y.p===p)||{d,p,cls:'',sub:'',room:''};
+  UI.ttCell={d,p}; const gid=UI.ttG!==undefined?UI.ttG:(x.g||''); const g=S.groups.find(y=>y.id===gid);
+  const layId=g?(UI.ttLay&&g.layouts.find(y=>y.id===UI.ttLay)?UI.ttLay:(x.g===gid&&x.lay)||g.layoutId):'';
+  const dn=['','Montag','Dienstag','Mittwoch','Donnerstag','Freitag'][d];
+  $('#sheet').innerHTML=`<h3>${dn}, ${p}. Stunde</h3>
+    <div class="row2"><label class="fld grow"><span>Klasse / Kurs</span><input type="text" id="ttCls" value="${esc(UI.ttTmp?UI.ttTmp.cls:x.cls||'')}"></label>
+      <label class="fld" style="width:6em"><span>Fach</span><input type="text" id="ttSub" value="${esc(UI.ttTmp?UI.ttTmp.sub:x.sub||'')}"></label>
+      <label class="fld" style="width:7em"><span>Raum</span><input type="text" id="ttRoom" value="${esc(UI.ttTmp?UI.ttTmp.room:x.room||'')}"></label></div>
+    <label class="fld"><span>Lerngruppe</span><select id="ttG"><option value="">– keine (z. B. Fachseminar, Termin) –</option>${S.groups.map(y=>`<option value="${y.id}"${y.id===gid?' selected':''}>${esc(y.name)}</option>`).join('')}</select></label>
+    ${g?`<label class="fld"><span>Sitzplan</span><select id="ttLay">${g.layouts.map(y=>`<option value="${y.id}"${y.id===layId?' selected':''}>${esc(y.name)}</option>`).join('')}</select></label>`:''}
+    <div class="row">${ver.slots.includes(x)?'<button class="btn danger" data-confirm="ttCellDel">Stunde entfernen</button>':''}<button class="btn" data-do="ttCellCancel">Abbrechen</button><button class="btn primary" data-do="ttCellSave">Übernehmen</button></div>`;
+  $('#sheet').hidden=false;
+}
+function ttCellSave(){
+  const ver=S.timetables.find(t=>t.id===UI.ttVer), {d,p}=UI.ttCell;
+  let x=ver.slots.find(y=>y.d===d&&y.p===p); if(!x){x={d,p};ver.slots.push(x)}
+  x.cls=$('#ttCls').value.trim(); x.sub=$('#ttSub').value.trim(); x.room=$('#ttRoom').value.trim();
+  const gid=$('#ttG').value; if(gid){x.g=gid;x.lay=$('#ttLay')?$('#ttLay').value:null}else{delete x.g;delete x.lay}
+  if(!x.cls&&!x.g) ver.slots=ver.slots.filter(y=>y!==x);
+  ttCellClose(); save(); renderWeek();
+}
+function ttCellClose(){$('#sheet').hidden=true;UI.ttCell=null;UI.ttG=undefined;UI.ttLay=null;UI.ttTmp=null}
+// Stundenplan-Datei: Lerngruppen über Klasse und Fach zuordnen
+const tok=x=>String(x||'').toLowerCase().split(/[^a-z0-9äöüß]+/).filter(Boolean);
+const SUBHINT={bi:['bio','biologie','bi'],win:['inf','informatik','win','wp'],inma:['inf','informatik','inma'],inf:['inf','informatik']};
+function wholeLay(g){return g.layouts.filter(y=>!isPart(g,y.id)).sort((a,b)=>Object.keys(b.seats).length-Object.keys(a.seats).length)[0]||g.layouts[0]}
+function partLay(g,part){const P=String(part).toLowerCase();return g.layouts.find(y=>{const t=tok(y.name);return t.includes(P)&&(t.includes('gruppe')||t.includes('teilgruppe')||t.length<=3)})||g.layouts.find(y=>tok(y.name).includes(P))||null}
+function matchSlots(t){
+  t.slots.forEach(x=>{
+    if(x.g&&S.groups.find(g=>g.id===x.g)) return; delete x.g; delete x.lay;
+    if(!x.cls||String(x.cls).startsWith('*')) return;
+    let c=S.groups.filter(g=>tok(g.name).includes(String(x.cls).toLowerCase()));
+    if(c.length>1){const h=SUBHINT[String(x.sub).toLowerCase()]||[String(x.sub).toLowerCase()];const c2=c.filter(g=>tok(g.name).some(w=>h.some(k=>w.startsWith(k))));if(c2.length)c=c2}
+    const g=c[0]; if(!g) return; x.g=g.id;
+    const pl=x.part?partLay(g,x.part):null; x.lay=(pl||wholeLay(g)).id;
+  });
+}
+function importTimetable(d){
+  if(Array.isArray(d.periods)&&d.periods.length) S.periods=d.periods.map(x=>({...x}));
+  let n=0;
+  (d.timetables||[]).forEach(t0=>{const t={id:uid(),from:t0.from,slots:(t0.slots||[]).map(x=>({...x})),duties:(t0.duties||[]).map(x=>({...x}))};
+    S.timetables=S.timetables.filter(x=>x.from!==t.from); S.timetables.push(t); matchSlots(t); n+=t.slots.length; UI.ttVer=t.id});
+  (d.free||[]).forEach(f=>{if(!S.free.some(x=>x.from===f.from&&x.to===f.to))S.free.push({...f})});
+  save(); S.ui.view='week'; UI.weekStart=mondayOf(todayStr()); renderAll();
+  const miss=[...new Set(S.timetables.flatMap(t=>t.slots).filter(x=>!x.g&&!String(x.cls||'').startsWith('*')).map(x=>`${x.cls} ${x.sub}`))];
+  $('#dlg').innerHTML=`<h2>Stundenplan übernommen</h2><p style="margin:0">${n} Stunden eingetragen.${miss.length?` Noch ohne Lerngruppe: <b>${miss.map(esc).join(', ')}</b>.`:' Alle Stunden sind einer Lerngruppe zugeordnet.'}</p>
+    ${miss.length?'<p class="muted" style="margin:0;font-size:14px">„Fehlende Lerngruppen anlegen“ legt sie mit diesem Namen an. Bei Teilungsunterricht entstehen zusätzlich die Sitzpläne „Gruppe A“ und „Gruppe B“, in denen du dann die Kinder auswählst. Alternativ ordnest du unter „Stundenplan bearbeiten“ deine bestehenden Lerngruppen zu.</p>':''}
+    <div class="row2">${miss.length?'<button class="btn primary" data-do="ttCreateGroups">Fehlende Lerngruppen anlegen</button>':''}<button class="btn" data-do="expClose">${miss.length?'Später':'OK'}</button></div>`;
+  $('#overlay').hidden=false;
+}
+function ttCreateGroups(){
+  const all=S.timetables.flatMap(t=>t.slots).filter(x=>!x.g&&x.cls&&!String(x.cls).startsWith('*'));
+  const keys=[...new Set(all.map(x=>x.cls+'|'+x.sub))];
+  keys.forEach(k=>{const [cls,sub]=k.split('|');const g={id:uid(),name:`${cls} ${sub}`,students:[],lessons:[]};ensureLayouts(g);
+    if(all.some(x=>x.cls===cls&&x.sub===sub&&x.part)){['A','B'].forEach(P=>g.layouts.push({id:uid(),name:'Gruppe '+P,seats:{},board:null,fixtures:[],part:true}))}
+    g.layouts[0].part=false; S.groups.push(g)});
+  S.timetables.forEach(matchSlots); save(); $('#overlay').hidden=true; renderAll();
 }
 
 /* ---------- Sitzplan ---------- */
@@ -946,7 +1194,7 @@ function csvHistory(){
   openExport(`AT_${slug(g.name)}_Verlauf_${todayStr()}.csv`,csv(rows),'text/csv');
 }
 function backupJSON(){
-  const data={app:'AT-Tool',version:1,exported:new Date().toISOString(),groups:S.groups,settings:S.settings};
+  const data={app:'AT-Tool',version:1,exported:new Date().toISOString(),groups:S.groups,settings:S.settings,timetables:S.timetables,periods:S.periods,free:S.free};
   openExport(`AT-Tool_Sicherung_${todayStr()}.json`,JSON.stringify(data,null,1),'application/json',true);
 }
 let EXP=null;
@@ -1039,10 +1287,13 @@ const CONFIRM={
   doImport(){const d=UI.importData;
     if(d.kind==='roster'){const old=S.groups;S.groups=d.groups.map(x=>{const o=old.find(y=>y.id===x.id);return Object.assign({},x,{lessons:o?o.lessons:[],units:[]})});
       S.groups.forEach(ensureLayouts);S.active={};S.ui.groupId=S.groups[0]?S.groups[0].id:null;S.ui.view='plan';UI.importData=null;pending.clear();save();renderAll();return}
-    S.groups=d.groups;S.groups.forEach(ensureLayouts);S.settings=Object.assign({cd:3},d.settings||{});S.active={};S.ui.groupId=S.groups[0]?S.groups[0].id:null;UI.importData=null;pending.clear();save();renderAll()},
+    S.groups=d.groups;S.groups.forEach(ensureLayouts);if(d.timetables)S.timetables=d.timetables;if(d.periods)S.periods=d.periods;if(d.free)S.free=d.free;S.settings=Object.assign({cd:3},d.settings||{});S.active={};S.ui.groupId=S.groups[0]?S.groups[0].id:null;UI.importData=null;pending.clear();save();renderAll()},
   arrange(){const g=G(),lay=LY(g);const ty=topY(g);members(g).forEach((s,i)=>{lay.seats[s.id]=gridPos(i,ty)});save();renderPlan()},
   unitDel(){const g=G(),u=curUnit(g);if(!u)return;g.lessons.forEach(l=>{if(l.plan&&l.plan.u===u.id)delete l.plan});g.units=UN(g).filter(x=>x.id!==u.id);g.unitId=g.units[0]?g.units[0].id:null;save();renderUnit()},
   delItem(id){const g=G(),u=curUnit(g);g.lessons.forEach(l=>{if(l.plan&&l.plan.i===id)delete l.plan});u.items=u.items.filter(x=>x.id!==id);save();renderUnit()},
+  ttDelVer(){S.timetables=S.timetables.filter(t=>t.id!==UI.ttVer);UI.ttVer=(S.timetables[0]||{}).id;save();renderWeek()},
+  ttCellDel(){const ver=S.timetables.find(t=>t.id===UI.ttVer),{d,p}=UI.ttCell;ver.slots=ver.slots.filter(y=>!(y.d===d&&y.p===p));ttCellClose();save();renderWeek()},
+  freeDel(i){S.free.splice(+i,1);save();renderWeek()},
   layDelete(){const g=G();const id=g.layoutId;g.layouts=g.layouts.filter(x=>x.id!==id);g.layoutId=g.layouts[0].id;save();closeEditor()},
   fxDelete(){const lay=LY(G());lay.fixtures=(lay.fixtures||[]).filter(f=>f.id!==UI.fxSel);save();closeEditor()},
   deleteStudent(){const g=G(),sid=UI.editSid;g.students=g.students.filter(s=>s.id!==sid);g.layouts.forEach(x=>{delete x.seats[sid]});g.lessons.forEach(l=>{delete l.e[sid];if(l.members)l.members=l.members.filter(i=>i!==sid)});
@@ -1070,6 +1321,13 @@ const DO={
   layNew(){layoutSheet(true)}, layEdit(){layoutSheet(false)}, laySave,
   layAll(){document.querySelectorAll('#sheet [data-mem]').forEach(c=>c.checked=true)},
   layNone(){document.querySelectorAll('#sheet [data-mem]').forEach(c=>c.checked=false)},
+  wkPrev(){UI.weekStart=addDays(UI.weekStart,-7);renderWeek()}, wkNext(){UI.weekStart=addDays(UI.weekStart,7);renderWeek()}, wkToday(){UI.weekStart=mondayOf(todayStr());renderWeek()},
+  ttEditOn(){UI.ttEdit=true;UI.ttVer=(ttOn(todayStr())||S.timetables[0]||{}).id;renderWeek()}, ttEditOff(){UI.ttEdit=false;ttCellClose();renderWeek()},
+  ttEmpty(){const t={id:uid(),from:todayStr(),slots:[],duties:[]};S.timetables.push(t);UI.ttEdit=true;UI.ttVer=t.id;save();renderWeek()},
+  ttNewVer(){const f=$('#ttNewFrom').value;if(!f)return;const src=S.timetables.find(t=>t.id===UI.ttVer);
+    S.timetables=S.timetables.filter(t=>t.from!==f);const t={id:uid(),from:f,slots:src?src.slots.map(x=>({...x})):[],duties:src?(src.duties||[]).map(x=>({...x})):[]};S.timetables.push(t);UI.ttVer=t.id;save();renderWeek()},
+  ttCellSave, ttCellCancel(){ttCellClose()}, ttCreateGroups,
+  freeAdd(){S.free.push({from:todayStr(),to:todayStr(),label:'Studientag'});save();renderWeek()},
   csvProto, sendMac:captureJSON, sendPhone:rosterJSON,
   unitNew(){const g=G();const u={id:uid(),title:`Reihe ${UN(g).length+1}`,items:[]};UN(g).push(u);g.unitId=u.id;save();renderUnit();const t=$('#uTitle');if(t){t.focus();t.select()}},
   unitAdd(){const g=G(),u=curUnit(g),ta=$('#uAdd');if(!u)return;ta.value.split('\n').map(x=>x.trim()).filter(Boolean).forEach(t=>u.items.push({id:uid(),topic:t}));save();renderUnit()},
@@ -1090,7 +1348,7 @@ const DO={
   expClose(){$('#overlay').hidden=true;EXP=null;if(S.ui.view==='data')renderData()}
 };
 
-function renderAll(){renderBar();if(S.ui.view==='plan')renderPlan();if(S.ui.view==='unit')renderUnit();if(S.ui.view==='table')renderTable();if(S.ui.view==='data')renderData()}
+function renderAll(){renderBar();if(S.ui.view==='plan')renderPlan();if(S.ui.view==='unit')renderUnit();if(S.ui.view==='week')renderWeek();if(S.ui.view==='table')renderTable();if(S.ui.view==='data')renderData()}
 
 /* ---------- Ereignisse ---------- */
 document.addEventListener('click',ev=>{
@@ -1100,6 +1358,8 @@ document.addEventListener('click',ev=>{
   if(seatBtn&&!UI.edit){const sid=seatBtn.closest('[data-sid]').dataset.sid;act(sid,seatBtn.dataset.act);return}
   const d=t.closest('[data-do]'); if(d&&DO[d.dataset.do]){DO[d.dataset.do](d);return}
   const c=t.closest('[data-confirm]'); if(c&&CONFIRM[c.dataset.confirm]){arm(c,()=>CONFIRM[c.dataset.confirm](c.dataset.id));return}
+  const wk=t.closest('[data-wk]'); if(wk){const [ds,p]=wk.dataset.wk.split('|');const x=slotsOn(ds).find(y=>y.p===+p);const g=slotGroup(x);if(g)openOrCreate(g,x,ds);return}
+  const tc=t.closest('[data-ttcell]'); if(tc){const [d,p]=tc.dataset.ttcell.split('|').map(Number);UI.ttG=undefined;UI.ttLay=null;UI.ttTmp=null;ttCellSheet(d,p);return}
   const mv=t.closest('[data-mv]'); if(mv){const u=curUnit(G()),i=u.items.findIndex(x=>x.id===mv.dataset.mv),j=i+(+mv.dataset.d);
     if(j>=0&&j<u.items.length){[u.items[i],u.items[j]]=[u.items[j],u.items[i]];save();renderUnit()}return}
   const pick=t.closest('[data-pick]'); if(pick){S.ui.groupId=pick.dataset.pick;S.ui.view='plan';UI.edit=false;save();renderAll();return}
@@ -1120,6 +1380,10 @@ document.addEventListener('change',ev=>{
       if(o&&o!==l.topic&&l.plan){UI.shift={lid:l.id,t:o}}if(S.ui.view==='plan')renderDoc()}}
   else if(t.id==='dPlan'){const g=G(),l=L(g);if(l){if(t.value){const [u,i]=t.value.split('|');l.plan={u,i};const f=findItem(g,l.plan);if(f&&f.it.topic)l.topic=f.it.topic}else delete l.plan;
       UI.shift=null;save();renderBar();renderDoc()}}
+  else if(t.id==='ttG'||t.id==='ttLay'){UI.ttTmp={cls:$('#ttCls').value,sub:$('#ttSub').value,room:$('#ttRoom').value};if(t.id==='ttG'){UI.ttG=t.value;UI.ttLay=null}else UI.ttLay=t.value;const c=UI.ttCell;ttCellSheet(c.d,c.p)}
+  else if(t.id==='ttVerSel'){UI.ttVer=t.value;renderWeek()}
+  else if(t.dataset.free){const [i,f]=t.dataset.free.split('|');const x=S.free[+i];if(x){x[f]=t.value;if(f==='from'&&(!x.to||x.to<x.from))x.to=x.from;save();renderWeek()}}
+  else if(t.dataset.per){const [n,f]=t.dataset.per.split('|');const x=per(+n);if(x&&t.value){x[f]=t.value;save()}}
   else if(t.id==='uSel'){G().unitId=t.value;save();renderUnit()}
   else if(t.id==='tLay'){UI.layF=t.value||null;renderTable()}
   else if(t.id==='laySel'){const g=G();g.layoutId=t.value;const l=L(g);if(l){l.layout=t.value;l.members=members(g).map(s=>s.id)}pending.clear();$('#sheet').hidden=true;save();renderPlan()}
@@ -1131,7 +1395,7 @@ document.addEventListener('change',ev=>{
   else if(t.dataset.rename){const x=S.groups.find(g=>g.id===t.dataset.rename);if(x&&t.value.trim()){x.name=t.value.trim();save();renderBar()}}
   else if(t.id==='importFile'&&t.files[0]){
     const r=new FileReader();
-    r.onload=()=>{let d=null;try{d=JSON.parse(r.result);if(!d||!Array.isArray(d.groups))throw 0}catch(e){UI.importData=null;alertBox('Die Datei ist keine gültige AT-Tool-Datei.');renderData();return}
+    r.onload=()=>{let d=null;try{d=JSON.parse(r.result);if(d&&d.kind==='timetable'){importTimetable(d);return}if(!d||!Array.isArray(d.groups))throw 0}catch(e){UI.importData=null;alertBox('Die Datei ist keine gültige AT-Tool-Datei.');renderData();return}
       if(d.kind==='capture'){UI.importData=null;importCapture(d);return}
       UI.importData=d;renderData()};
     r.readAsText(t.files[0]);
