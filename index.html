@@ -194,6 +194,10 @@ table.week td:first-child{position:static}
 .slot.term{background:var(--surface-2);color:var(--muted)}
 .slot.free{background:repeating-linear-gradient(135deg,var(--surface-2) 0 8px,var(--surface) 8px 16px);color:var(--muted);font-weight:700}
 .slot.edit{cursor:pointer}
+.slot.chg{outline:2px dashed hsl(32 85% 48%);outline-offset:-3px}
+.slot.cancel{background:var(--surface-2)}
+.slot.cancel .shead{text-decoration:line-through;opacity:.6}
+.schg{font-size:10px;font-weight:700;color:hsl(28 80% 38%);text-transform:uppercase;letter-spacing:.02em}
 .slot.empty .plus{color:var(--muted);font-size:18px;opacity:.5}
 .slot span{display:block;overflow:hidden;text-overflow:ellipsis}
 .shead{white-space:nowrap}
@@ -410,7 +414,7 @@ function load(){
   try{const raw=localStorage.getItem(KEY); if(raw) S=JSON.parse(raw);}catch(e){storageOK=false}
   if(!S||!Array.isArray(S.groups)) S=seed();
   S.groups.forEach(ensureLayouts);
-  S.periods=S.periods||DEF_PERIODS.map(x=>({...x})); S.free=S.free||BERLIN_FREE.map(x=>({...x})); S.timetables=S.timetables||[];
+  S.periods=S.periods||DEF_PERIODS.map(x=>({...x})); S.free=S.free||BERLIN_FREE.map(x=>({...x})); S.timetables=S.timetables||[]; S.changes=S.changes||[];
   S.settings=Object.assign({cd:3},S.settings||{});
   S.active=S.active||{}; S.ui=Object.assign({view:'plan'},S.ui||{});
   if(!S.groups.find(g=>g.id===S.ui.groupId)) S.ui.groupId=S.groups[0]?S.groups[0].id:null;
@@ -733,7 +737,14 @@ const ddmm=ds=>fmtDate(ds).slice(0,6);
 const freeOn=ds=>S.free.find(f=>f.from&&ds>=f.from&&ds<=(f.to||f.from));
 const ttOn=ds=>S.timetables.filter(t=>t.from<=ds).sort((a,b)=>b.from.localeCompare(a.from))[0]||null;
 const per=p=>S.periods.find(x=>x.n===p);
-function slotsOn(ds){const d=dow(ds);if(d===0||d===6||freeOn(ds))return[];const t=ttOn(ds);return t?t.slots.filter(x=>x.d===d).sort((a,b)=>a.p-b.p):[]}
+function baseSlotsOn(ds){const d=dow(ds);if(d===0||d===6||freeOn(ds))return[];const t=ttOn(ds);return t?t.slots.filter(x=>x.d===d).sort((a,b)=>a.p-b.p):[]}
+// Tagesänderungen (Vertretung, Aufhebung der Teilung, Ausfall) gelten nur für ein Datum und eine Stunde
+const chgOn=(ds,p)=>S.changes.find(c=>c.ds===ds&&c.p===p)||null;
+function slotsOn(ds){let s=baseSlotsOn(ds);const d=dow(ds);if(d===0||d===6||freeOn(ds))return s;
+  const ch=S.changes.filter(c=>c.ds===ds); if(!ch.length) return s;
+  s=s.filter(x=>!ch.some(c=>c.p===x.p));
+  ch.forEach(c=>{if(!c.cancel)s.push({d,p:c.p,cls:c.cls||'',sub:c.sub||'',room:c.room||'',g:c.g,lay:c.lay,chg:true})});
+  return s.sort((a,b)=>a.p-b.p)}
 const slotGroup=x=>x&&x.g?S.groups.find(g=>g.id===x.g)||null:null;
 function lessonAt(g,x,ds){const pp=per(x.p);if(!pp)return null;
   return g.lessons.find(l=>l.date===ds&&(!x.lay||l.layout===x.lay)&&Math.abs(minOf(l.start)-minOf(pp.s))<=20)||null}
@@ -773,13 +784,15 @@ function renderWeek(){
         rows+=`<td class="slot edit${x?'':' empty'}" data-ttcell="${d}|${p}"${g?` style="--h:${hue(g.id)}"`:''}>${du}${x?slotInner(x,g,null,true):'<span class="plus">+</span>'}</td>`;return}
       const fr=freeOn(ds);
       if(fr){rows+=`<td class="slot free">${p===1?`<span>${esc(fr.label)}</span>`:''}</td>`;return}
-      const t=ttOn(ds); const x=slotsOn(ds).find(y=>y.p===p); const g=slotGroup(x);
+      const t=ttOn(ds); const x=slotsOn(ds).find(y=>y.p===p); const g=slotGroup(x); const c=chgOn(ds,p); const de=UI.dayEdit;
       const du=t?(t.duties||[]).filter(y=>y.d===d&&y.after===p-1).map(y=>`<span class="duty">Aufsicht ${esc(y.label)}</span>`).join(''):'';
-      if(!x){rows+=`<td class="slot${ds===today?' today':''}">${du}</td>`;return}
+      const dc=de?` data-dc="${ds}|${p}"`:'';
+      if(!x){const b=c&&c.cancel?baseSlotsOn(ds).find(y=>y.p===p):null;
+        rows+=`<td class="slot${ds===today?' today':''}${de?' edit':''}${b?' chg cancel':''}"${dc}>${du}${b?`<span class="shead"><b>${esc(b.cls||'')}</b> ${esc(b.sub||'')}</span><span class="schg">entfällt</span>`:(de?'<span class="plus">+</span>':'')}</td>`;return}
       const l=g?lessonAt(g,x,ds):null; const it=g&&!l?proj[g.id].at[ds+'|'+p]:null;
       const info=l?{t:l.topic||'(ohne Inhalt)',k:'held'}:it?{t:it.topic,k:'plan'}:(g&&ds<today?{t:'nicht erfasst',k:'miss'}:null);
-      const act=g&&ds<=today;
-      rows+=`<td class="slot${ds===today?' today':''}${act?' act':''}${!g&&String(x.cls||'').startsWith('*')?' term':''}"${act?` data-wk="${ds}|${p}"`:''}${g?` style="--h:${hue(g.id)}"`:''}>${du}${slotInner(x,g,info,false,l,ds===today)}</td>`;
+      const act=g&&ds<=today&&!de;
+      rows+=`<td class="slot${ds===today?' today':''}${act?' act':''}${de?' edit':''}${x.chg?' chg':''}${!g&&String(x.cls||'').startsWith('*')?' term':''}"${act?` data-wk="${ds}|${p}"`:''}${dc}${g?` style="--h:${hue(g.id)}"`:''}>${du}${x.chg?'<span class="schg">nur an diesem Tag</span>':''}${slotInner(x,g,info,false,l,ds===today)}</td>`;
     });
     rows+='</tr>';
   }
@@ -796,7 +809,8 @@ function renderWeek(){
       <div class="wtitle"><b>KW ${kw(UI.weekStart)}</b><span class="muted">${ddmm(days[0])} – ${fmtDate(days[4])}</span></div>
       <button class="btn" data-do="wkNext" aria-label="Nächste Woche">›</button>
       <button class="btn" data-do="wkToday">Heute</button>
-      <span class="sp"></span><button class="btn" data-do="importPick">Stundenplan importieren</button>${S.timetables.length?'<button class="btn" data-do="ttEditOn">Stundenplan bearbeiten</button>':''}</div>`;
+      <span class="sp"></span>${UI.dayEdit?'<button class="btn primary" data-do="dcToggle">Fertig</button>':`<button class="btn" data-do="importPick">Stundenplan importieren</button>${S.timetables.length?'<button class="btn" data-do="dcToggle">Einzelne Stunde ändern</button><button class="btn" data-do="ttEditOn">Stundenplan bearbeiten</button>':''}`}</div>
+      ${UI.dayEdit?'<p class="muted" style="font-size:14px;margin:0 0 10px">Tippe auf eine Stunde, um sie nur an diesem Tag zu ändern, zum Beispiel bei Vertretung, aufgehobener Teilung oder Ausfall. Ein Tipp auf ein leeres Feld legt eine zusätzliche Stunde an. Der Stundenplan selbst bleibt unverändert.</p>':''}`;
   const emptyTT=!S.timetables.length?`<div class="banner"><p>Noch kein Stundenplan. Importiere deine Stundenplan-Datei oder lege einen leeren Plan an.</p><button class="btn primary" data-do="importPick">Stundenplan-Datei importieren</button><button class="btn" data-do="ttEmpty">Leeren Stundenplan anlegen</button></div>`:'';
   const unassigned=S.timetables.some(t=>t.slots.some(x=>!x.g&&!String(x.cls||'').startsWith('*')));
   // Teilungsstunden (T), die noch auf einem Sitzplan der ganzen Klasse liegen
@@ -811,6 +825,10 @@ function renderWeek(){
     ${badT.length&&!ed?`<div class="banner"><p><b>Teilungsstunden ohne Teilgruppe:</b> ${badT.map(esc).join(', ')}. Diese Stunden liegen auf dem Sitzplan der ganzen Klasse und zählen deshalb als zwei verschiedene Stunden der Reihe. Ordne unter „Stundenplan bearbeiten“ die Sitzpläne der Teilgruppen zu. Gibt es sie noch nicht, lege sie im Sitzplan an und setze dort das Häkchen „Teilgruppe“.</p><button class="btn primary" data-do="ttEditOn">Zuordnen</button></div>`:''}
     ${S.timetables.length?`<div class="tablewrap"><table class="week"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`:''}
     ${!ed&&S.timetables.length?'<p class="note">Grün umrandet = erfasste Stunde, kursiv = voraussichtlicher Inhalt aus der Reihenplanung. Tippe auf eine Stunde von heute oder früher, um sie zu öffnen oder anzulegen.</p>':''}
+    ${!ed&&S.changes.some(c=>c.ds>=today)?`<div class="card" style="margin-top:14px"><h2>Tagesänderungen</h2><div class="list">${S.changes.filter(c=>c.ds>=today).sort((a,b)=>(a.ds+String(a.p).padStart(2,'0')).localeCompare(b.ds+String(b.p).padStart(2,'0'))).map(c=>{const b=baseSlotsOn(c.ds).find(y=>y.p===c.p);const g=slotGroup(c);const bg=slotGroup(b);
+        const was=b?(bg?esc(bg.name)+(b.lay&&bg.layouts.length>1?' · '+esc(layShort(bg,b.lay)):''):esc(((b.cls||'')+' '+(b.sub||'')).trim())):'frei';
+        const now=c.cancel?'entfällt':(g?esc(g.name)+(c.lay&&g.layouts.length>1?' · '+esc(layShort(g,c.lay)):''):esc(((c.cls||'')+' '+(c.sub||'')).trim())||'ohne Lerngruppe');
+        return `<div class="li"><b style="min-width:8.5em">${wd(c.ds)} ${ddmm(c.ds)}, ${c.p}.</b><span class="grow">${was} → <b>${now}</b></span><button class="btn danger" data-confirm="dcDel" data-id="${c.id}" aria-label="Änderung zurücknehmen">✕</button></div>`}).join('')}</div></div>`:''}
     <div class="cards" style="margin-top:14px">
       <div class="card"><h2>Ferien &amp; freie Tage</h2>
         <p class="muted" style="font-size:14px">Voreingestellt sind die Berliner Ferien und Feiertage 2026/27. Studientage, Projektwochen oder Klassenfahrten trägst du hier ein. An diesen Tagen werden keine Stunden eingeplant.</p>
@@ -844,6 +862,41 @@ function ttCellSheet(d,p){
     <div class="row">${ver.slots.includes(x)?'<button class="btn danger" data-confirm="ttCellDel">Stunde entfernen</button>':''}<span class="muted" style="font-size:13px;align-self:center;margin-right:auto">Änderungen werden sofort gespeichert.</span><button class="btn primary" data-do="ttCellSave">Fertig</button></div>`;
   $('#sheet').hidden=false;
 }
+function dcSheet(ds,p){
+  const base=baseSlotsOn(ds).find(y=>y.p===p)||null; const c=chgOn(ds,p); const cur=c||base||{};
+  UI.dc={ds,p}; const tmp=UI.dcTmp;
+  const cancel=tmp?tmp.cancel:!!(c&&c.cancel);
+  const gid=UI.dcG!==undefined?UI.dcG:(cur.g||''); const g=S.groups.find(y=>y.id===gid);
+  const layId=g?(UI.dcLay&&g.layouts.find(y=>y.id===UI.dcLay)?UI.dcLay:((cur.g===gid&&cur.lay)||wholeLay(g).id)):'';
+  const bg=slotGroup(base);
+  const was=base?`${esc(((base.cls||'')+' '+(base.sub||'')).trim())}${bg?' · '+esc(bg.name)+(base.lay&&bg.layouts.length>1?' · '+esc(layShort(bg,base.lay)):''):''}`:'keine Stunde';
+  $('#sheet').innerHTML=`<h3>${wd(ds)} ${ddmm(ds)}, ${p}. Stunde</h3>
+    <p class="muted" style="margin:0;font-size:14px">Gilt nur an diesem Tag. Laut Stundenplan: ${was}.</p>
+    ${base?`<label class="chk" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="dcCancel"${cancel?' checked':''}> Stunde fällt aus</label>`:''}
+    <div${cancel?' hidden':''}>
+    <div class="row2"><label class="fld grow"><span>Klasse / Kurs</span><input type="text" id="dcCls" value="${esc(tmp?tmp.cls:cur.cls||'')}"></label>
+      <label class="fld" style="width:6em"><span>Fach</span><input type="text" id="dcSub" value="${esc(tmp?tmp.sub:cur.sub||'')}"></label>
+      <label class="fld" style="width:7em"><span>Raum</span><input type="text" id="dcRoom" value="${esc(tmp?tmp.room:cur.room||'')}"></label></div>
+    <label class="fld"><span>Lerngruppe</span><select id="dcG"><option value="">– keine (z. B. Vertretung ohne Erfassung) –</option>${S.groups.map(y=>`<option value="${y.id}"${y.id===gid?' selected':''}>${esc(y.name)}</option>`).join('')}</select></label>
+    ${g?`<label class="fld"><span>Sitzplan</span><select id="dcLay">${g.layouts.map(y=>`<option value="${y.id}"${y.id===layId?' selected':''}>${esc(y.name)}</option>`).join('')}</select></label>`:''}
+    ${base&&base.part?'<p class="muted" style="margin:0;font-size:13px">Wird die Teilung aufgehoben, wähle in beiden Stunden den Sitzplan der ganzen Klasse.</p>':''}
+    </div>
+    <div class="row">${c?'<button class="btn danger" data-do="dcReset">Änderung zurücknehmen</button>':''}<span class="muted" style="font-size:13px;align-self:center;margin-right:auto">Änderungen werden sofort gespeichert.</span><button class="btn primary" data-do="dcSave">Fertig</button></div>`;
+  $('#sheet').hidden=false;
+}
+function dcTmpRead(){return {cancel:!!($('#dcCancel')&&$('#dcCancel').checked),cls:$('#dcCls').value,sub:$('#dcSub').value,room:$('#dcRoom').value}}
+function dcApply(){
+  if(!UI.dc||!$('#dcCls')) return; const {ds,p}=UI.dc; const base=baseSlotsOn(ds).find(y=>y.p===p)||null;
+  let c=chgOn(ds,p); if(!c){c={id:uid(),ds,p};S.changes.push(c)}
+  c.cancel=!!(base&&$('#dcCancel')&&$('#dcCancel').checked);
+  c.cls=$('#dcCls').value.trim(); c.sub=$('#dcSub').value.trim(); c.room=$('#dcRoom').value.trim();
+  const gid=$('#dcG').value; if(gid){const g=S.groups.find(y=>y.id===gid);const lv=$('#dcLay')&&$('#dcLay').value;c.g=gid;c.lay=g&&g.layouts.find(y=>y.id===lv)?lv:(g?wholeLay(g).id:null)}else{delete c.g;delete c.lay}
+  const effLay=x=>{const g=slotGroup(x);return g?(x.lay||wholeLay(g).id):null};
+  const same=c.cancel?false:base?((c.g||null)===(base.g||null)&&effLay(c)===effLay(base)&&c.cls===(base.cls||'')&&c.sub===(base.sub||'')&&c.room===(base.room||'')):(!c.g&&!c.cls&&!c.sub);
+  if(same) S.changes=S.changes.filter(y=>y!==c);
+  save(); renderWeek();
+}
+function dcClose(){if(UI.dc)$('#sheet').hidden=true;UI.dc=null;UI.dcG=undefined;UI.dcLay=null;UI.dcTmp=null}
 // Jede Änderung im Fenster wird sofort gespeichert
 function ttCellApply(){
   const ver=S.timetables.find(t=>t.id===UI.ttVer); if(!ver||!UI.ttCell||!$('#ttCls')) return; const {d,p}=UI.ttCell;
@@ -1428,7 +1481,7 @@ function csvHistory(){
   openExport(`AT_${slug(g.name)}_Verlauf_${todayStr()}.csv`,csv(rows),'text/csv');
 }
 function backupJSON(){
-  const data={app:'AT-Tool',version:1,exported:new Date().toISOString(),groups:S.groups,settings:S.settings,timetables:S.timetables,periods:S.periods,free:S.free};
+  const data={app:'AT-Tool',version:1,exported:new Date().toISOString(),groups:S.groups,settings:S.settings,timetables:S.timetables,periods:S.periods,free:S.free,changes:S.changes};
   openExport(`AT-Tool_Sicherung_${todayStr()}.json`,JSON.stringify(data,null,1),'application/json',true);
 }
 let EXP=null;
@@ -1516,13 +1569,14 @@ function renderData(){
 
 /* ---------- Zweistufiges Bestätigen ---------- */
 const CONFIRM={
+  dcDel(id){S.changes=S.changes.filter(c=>c.id!==id);save();renderWeek()},
   removeStudent(){const g=G(),st=g.students.find(s=>s.id===UI.editSid);if(st){st.archived=true;st.archivedAt=todayStr();g.layouts.forEach(x=>{delete x.seats[st.id]})}syncLesson(g);save();closeEditor()},
   delGroup(id){S.groups=S.groups.filter(x=>x.id!==id);delete S.active[id];if(S.ui.groupId===id)S.ui.groupId=S.groups[0]?S.groups[0].id:null;save();renderAll()},
   delLesson(id){const g=G();g.lessons=g.lessons.filter(l=>l.id!==id);if(S.active[g.id]===id)delete S.active[g.id];save();renderAll()},
   doImport(){const d=UI.importData;
     if(d.kind==='roster'){const old=S.groups;S.groups=d.groups.map(x=>{const o=old.find(y=>y.id===x.id);return Object.assign({},x,{lessons:o?o.lessons:[],units:[]})});
       S.groups.forEach(ensureLayouts);S.active={};S.ui.groupId=S.groups[0]?S.groups[0].id:null;S.ui.view='plan';UI.importData=null;pending.clear();save();renderAll();return}
-    S.groups=d.groups;S.groups.forEach(ensureLayouts);if(d.timetables)S.timetables=d.timetables;if(d.periods)S.periods=d.periods;if(d.free)S.free=d.free;S.settings=Object.assign({cd:3},d.settings||{});S.active={};S.ui.groupId=S.groups[0]?S.groups[0].id:null;UI.importData=null;pending.clear();save();renderAll()},
+    S.groups=d.groups;S.groups.forEach(ensureLayouts);if(d.timetables)S.timetables=d.timetables;if(d.periods)S.periods=d.periods;if(d.free)S.free=d.free;S.changes=Array.isArray(d.changes)?d.changes:[];S.settings=Object.assign({cd:3},d.settings||{});S.active={};S.ui.groupId=S.groups[0]?S.groups[0].id:null;UI.importData=null;pending.clear();save();renderAll()},
   arrange(){const g=G(),lay=LY(g);const ty=topY(g);members(g).forEach((s,i)=>{lay.seats[s.id]=gridPos(i,ty)});save();renderPlan()},
   unitDel(){const g=G(),u=curUnit(g);if(!u)return;g.lessons.forEach(l=>{if(l.plan&&l.plan.u===u.id)delete l.plan});g.units=UN(g).filter(x=>x.id!==u.id);g.unitId=g.units[0]?g.units[0].id:null;save();renderUnit()},
   delItem(id){const g=G(),u=curUnit(g);g.lessons.forEach(l=>{if(l.plan&&l.plan.i===id)delete l.plan});u.items=u.items.filter(x=>x.id!==id);save();renderUnit()},
@@ -1559,7 +1613,9 @@ const DO={
   layAll(){document.querySelectorAll('#sheet [data-mem]').forEach(c=>c.checked=true)},
   layNone(){document.querySelectorAll('#sheet [data-mem]').forEach(c=>c.checked=false)},
   wkPrev(){UI.weekStart=addDays(UI.weekStart,-7);renderWeek()}, wkNext(){UI.weekStart=addDays(UI.weekStart,7);renderWeek()}, wkToday(){UI.weekStart=mondayOf(todayStr());renderWeek()},
-  ttEditOn(){UI.ttEdit=true;UI.ttVer=(ttOn(todayStr())||S.timetables[0]||{}).id;renderWeek()}, ttEditOff(){UI.ttEdit=false;ttCellClose();renderWeek()},
+  dcToggle(){UI.dayEdit=!UI.dayEdit;dcClose();renderWeek()}, dcSave(){dcApply();dcClose();renderWeek()},
+  dcReset(){if(UI.dc){const {ds,p}=UI.dc;S.changes=S.changes.filter(c=>!(c.ds===ds&&c.p===p))}dcClose();save();renderWeek()},
+  ttEditOn(){UI.dayEdit=false;dcClose();UI.ttEdit=true;UI.ttVer=(ttOn(todayStr())||S.timetables[0]||{}).id;renderWeek()}, ttEditOff(){UI.ttEdit=false;ttCellClose();renderWeek()},
   ttEmpty(){const t={id:uid(),from:todayStr(),slots:[],duties:[]};S.timetables.push(t);UI.ttEdit=true;UI.ttVer=t.id;save();renderWeek()},
   ttNewVer(){const f=$('#ttNewFrom').value;if(!f)return;const src=S.timetables.find(t=>t.id===UI.ttVer);
     S.timetables=S.timetables.filter(t=>t.from!==f);const t={id:uid(),from:f,slots:src?src.slots.map(x=>({...x})):[],duties:src?(src.duties||[]).map(x=>({...x})):[]};S.timetables.push(t);UI.ttVer=t.id;save();renderWeek()},
@@ -1593,12 +1649,13 @@ function renderAll(){renderBar();if(S.ui.view==='plan')renderPlan();if(S.ui.view
 /* ---------- Ereignisse ---------- */
 document.addEventListener('click',ev=>{
   const t=ev.target;
-  const tab=t.closest('.tabs button'); if(tab){if(UI.ttCell){ttCellApply();ttCellClose()}S.ui.view=tab.dataset.view;if(S.ui.view!=='plan'){UI.edit=false;$('#sheet').hidden=true}save();renderAll();window.scrollTo(0,0);return}
+  const tab=t.closest('.tabs button'); if(tab){if(UI.ttCell){ttCellApply();ttCellClose()}if(UI.dc){dcApply();dcClose()}UI.dayEdit=false;S.ui.view=tab.dataset.view;if(S.ui.view!=='plan'){UI.edit=false;$('#sheet').hidden=true}save();renderAll();window.scrollTo(0,0);return}
   const seatBtn=t.closest('#stage [data-act], #rlist [data-act]');
   if(seatBtn&&!UI.edit){const sid=seatBtn.closest('[data-sid]').dataset.sid;act(sid,seatBtn.dataset.act);return}
   const d=t.closest('[data-do]'); if(d&&DO[d.dataset.do]){DO[d.dataset.do](d);return}
   const c=t.closest('[data-confirm]'); if(c&&CONFIRM[c.dataset.confirm]){arm(c,()=>CONFIRM[c.dataset.confirm](c.dataset.id));return}
   const wk=t.closest('[data-wk]'); if(wk){const [ds,p]=wk.dataset.wk.split('|');const x=slotsOn(ds).find(y=>y.p===+p);const g=slotGroup(x);if(g)openOrCreate(g,x,ds);return}
+  const dcc=t.closest('[data-dc]'); if(dcc){const [ds,p]=dcc.dataset.dc.split('|');UI.dcG=undefined;UI.dcLay=null;UI.dcTmp=null;dcSheet(ds,+p);return}
   const tc=t.closest('[data-ttcell]'); if(tc){const [d,p]=tc.dataset.ttcell.split('|').map(Number);UI.ttG=undefined;UI.ttLay=null;UI.ttTmp=null;ttCellSheet(d,p);return}
   const gh=t.closest('[data-gbhj]'); if(gh){UI.gbHJ=gh.dataset.gbhj==='y'?'y':+gh.dataset.gbhj;renderGrades();return}
   const gi=t.closest('[data-gbitem]'); if(gi){gbItemSheet(gi.dataset.gbitem);return}
@@ -1624,6 +1681,8 @@ document.addEventListener('change',ev=>{
       UI.shift=null;save();renderBar();renderDoc()}}
   else if(t.id==='ttG'||t.id==='ttLay'){UI.ttTmp={cls:$('#ttCls').value,sub:$('#ttSub').value,room:$('#ttRoom').value};if(t.id==='ttG'){UI.ttG=t.value;UI.ttLay=null}else UI.ttLay=t.value;const c=UI.ttCell;ttCellSheet(c.d,c.p);ttCellApply()}
   else if(t.id==='ttCls'||t.id==='ttSub'||t.id==='ttRoom'){ttCellApply()}
+  else if(t.id==='dcG'||t.id==='dcLay'||t.id==='dcCancel'){UI.dcTmp=dcTmpRead();if(t.id==='dcG'){UI.dcG=t.value;UI.dcLay=null}else if(t.id==='dcLay')UI.dcLay=t.value;const c=UI.dc;dcSheet(c.ds,c.p);dcApply()}
+  else if(t.id==='dcCls'||t.id==='dcSub'||t.id==='dcRoom'){dcApply()}
   else if(t.id==='ttVerSel'){UI.ttVer=t.value;renderWeek()}
   else if(t.dataset.free){const [i,f]=t.dataset.free.split('|');const x=S.free[+i];if(x){x[f]=t.value;if(f==='from'&&(!x.to||x.to<x.from))x.to=x.from;save();renderWeek()}}
   else if(t.dataset.per){const [n,f]=t.dataset.per.split('|');const x=per(+n);if(x&&t.value){x[f]=t.value;save()}}
