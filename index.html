@@ -246,6 +246,9 @@ table.gb td.gc.k-u{background:color-mix(in oklab,var(--bad) 12%,var(--surface))}
 @keyframes noFlash{0%,100%{transform:none}30%{transform:translateX(-2px)}60%{transform:translateX(2px)}}
 @media (prefers-reduced-motion: reduce){.cb.dec,.att.dec,.cb.nodec,.att.nodec{animation:none}}
 #stage [data-act],#rlist [data-act]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.banner.col{flex-direction:column;align-items:stretch}
+.banner.col p{flex:none}
+.blist{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px;font-size:14px}
 .legend{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
 .legend h3{margin-bottom:10px}
 .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:8px 20px}
@@ -438,6 +441,9 @@ function load(){
   try{const raw=localStorage.getItem(KEY); if(raw) S=JSON.parse(raw);}catch(e){storageOK=false}
   if(!S||!Array.isArray(S.groups)) S=seed();
   S.groups.forEach(ensureLayouts);
+  // Korrektur: Sitzpläne, die fälschlich fest als „keine Teilgruppe“ gespeichert wurden, wieder automatisch erkennen lassen
+  if(!S.migPart){S.groups.forEach(g=>{const big=g.layouts.slice().sort((a,b)=>Object.keys(b.seats).length-Object.keys(a.seats).length)[0];
+    g.layouts.forEach(y=>{if(y.part===false&&y!==big)delete y.part})});S.migPart=1}
   S.periods=S.periods||DEF_PERIODS.map(x=>({...x})); S.free=S.free||BERLIN_FREE.map(x=>({...x})); S.timetables=S.timetables||[]; S.changes=S.changes||[];
   S.settings=Object.assign({cd:3},S.settings||{});
   S.active=S.active||{}; S.ui=Object.assign({view:'plan'},S.ui||{});
@@ -836,14 +842,20 @@ function renderWeek(){
   const unassigned=S.timetables.some(t=>t.slots.some(x=>!x.g&&!String(x.cls||'').startsWith('*')));
   // Teilungsstunden (T), die noch auf einem Sitzplan der ganzen Klasse liegen
   const fullParts=[];S.groups.forEach(g=>{const L=live(g).length;if(L<4)return;g.layouts.forEach(y=>{if(isPart(g,y.id)&&Object.keys(y.seats).length>=0.9*L)fullParts.push(`${g.name}: ${y.name}`)})});
-  const badT=[...new Set((ttOn(today)||{slots:[]}).slots.filter(x=>{const g=slotGroup(x);return x.part&&g&&!isPart(g,x.lay)}).map(x=>`${slotGroup(x).name} (${['','Mo','Di','Mi','Do','Fr'][x.d]} ${x.p}.)`))];
+  // Teilungsstunden (T) prüfen – in allen Stundenplan-Versionen, die heute oder später gelten – und den Grund nennen
+  const badT=badPartSlots().map(({x,g})=>{const lay=g.layouts.find(y=>y.id===x.lay);const parts=g.layouts.filter(y=>isPart(g,y.id));
+    const why=!x.lay?'kein Sitzplan zugeordnet':!lay?'der zugeordnete Sitzplan wurde gelöscht':`zugeordnet ist „${lay.name}“, das ist keine Teilgruppe`;
+    return `<li><b>${esc(g.name)}</b>, ${['','Mo','Di','Mi','Do','Fr'][x.d]} ${x.p}. Stunde (Teilgruppe ${esc(x.part)}): ${esc(why)}. ${parts.length?`Vorhandene Teilgruppen: ${parts.map(y=>'„'+esc(y.name)+'“').join(', ')}.`:'<b>Diese Lerngruppe hat keinen Sitzplan, der als Teilgruppe gilt.</b>'}</li>`});
+  const canFix=badPartSlots().some(({g})=>g.layouts.some(y=>isPart(g,y.id)));
   const freeRows=S.free.slice().sort((a,b)=>(a.from||'').localeCompare(b.from||'')).map(f=>{const i=S.free.indexOf(f);
     return `<div class="li"><input type="date" data-free="${i}|from" value="${f.from||''}" aria-label="von"><span class="muted">bis</span><input type="date" data-free="${i}|to" value="${f.to||''}" aria-label="bis"><input type="text" class="grow" data-free="${i}|label" value="${esc(f.label||'')}" aria-label="Bezeichnung"><button class="btn danger" data-confirm="freeDel" data-id="${i}" aria-label="entfernen">✕</button></div>`}).join('');
   const perRows=S.periods.map(x=>`<div class="li"><b style="width:2em">${x.n}.</b><input type="time" data-per="${x.n}|s" value="${x.s}" aria-label="Beginn"><span class="muted">bis</span><input type="time" data-per="${x.n}|e" value="${x.e}" aria-label="Ende"></div>`).join('');
   v.innerHTML=`${ctl}${emptyTT}
     ${unassigned&&!ed?`<div class="banner"><p>Einige Stunden sind noch keiner Lerngruppe zugeordnet. Ohne Zuordnung gibt es keine Termine in der Reihenplanung.</p><button class="btn" data-do="ttEditOn">Zuordnen</button>${S.groups.length<20?'<button class="btn primary" data-do="ttCreateGroups">Fehlende Lerngruppen anlegen</button>':''}</div>`:''}
     ${fullParts.length&&!ed?`<div class="banner"><p><b>Teilgruppe mit allen Kindern:</b> ${fullParts.map(esc).join(', ')}. Wähle im Sitzplan unter „Sitzplan bearbeiten“ → „Kinder auswählen“ nur die Kinder dieser Teilgruppe aus.</p></div>`:''}
-    ${badT.length&&!ed?`<div class="banner"><p><b>Teilungsstunden ohne Teilgruppe:</b> ${badT.map(esc).join(', ')}. Diese Stunden liegen auf dem Sitzplan der ganzen Klasse und zählen deshalb als zwei verschiedene Stunden der Reihe. Ordne unter „Stundenplan bearbeiten“ die Sitzpläne der Teilgruppen zu. Gibt es sie noch nicht, lege sie im Sitzplan an und setze dort das Häkchen „Teilgruppe“.</p><button class="btn primary" data-do="ttEditOn">Zuordnen</button></div>`:''}
+    ${badT.length&&!ed?`<div class="banner col"><p><b>Teilungsstunden ohne Teilgruppe</b></p><ul class="blist">${badT.join('')}</ul>
+      <p class="muted" style="font-size:13px">Fehlt eine Teilgruppe: Lerngruppe wählen → „Sitzplan bearbeiten“ → „Kinder auswählen · Name“ beim Sitzplan der Teilgruppe → Häkchen „Teilgruppe“ setzen.</p>
+      <div class="row2">${canFix?'<button class="btn primary" data-do="ttFixParts">Teilgruppen automatisch zuordnen</button>':''}<button class="btn" data-do="ttEditOn">Von Hand zuordnen</button></div></div>`:''}
     ${S.timetables.length?`<div class="tablewrap"><table class="week"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`:''}
     ${!ed&&S.timetables.length?'<p class="note">Grün umrandet = erfasste Stunde, kursiv = voraussichtlicher Inhalt aus der Reihenplanung. Tippe auf eine Stunde von heute oder früher, auch auf ein freies Feld (z. B. Vertretung). Dann wählst du Lerngruppe, Sitzplan und Inhalt. ✓ = Stunde beendet.</p>':''}
     ${!ed&&S.changes.some(c=>c.ds>=today)?`<div class="card" style="margin-top:14px"><h2>Tagesänderungen</h2><div class="list">${S.changes.filter(c=>c.ds>=today).sort((a,b)=>(a.ds+String(a.p).padStart(2,'0')).localeCompare(b.ds+String(b.p).padStart(2,'0'))).map(c=>{const b=baseSlotsOn(c.ds).find(y=>y.p===c.p);const g=slotGroup(c);const bg=slotGroup(b);
@@ -933,6 +945,10 @@ function ttCellClose(){$('#sheet').hidden=true;UI.ttCell=null;UI.ttG=undefined;U
 const tok=x=>String(x||'').toLowerCase().split(/[^a-z0-9äöüß]+/).filter(Boolean);
 const SUBHINT={bi:['bio','biologie','bi'],win:['inf','informatik','win','wp'],inma:['inf','informatik','inma'],inf:['inf','informatik']};
 function wholeLay(g){return g.layouts.filter(y=>!isPart(g,y.id)).sort((a,b)=>Object.keys(b.seats).length-Object.keys(a.seats).length)[0]||g.layouts[0]}
+function badPartSlots(){const today=todayStr();const cur=ttOn(today);const vers=S.timetables.filter(t=>t===cur||t.from>today);const out=[];
+  vers.forEach(t=>t.slots.forEach(x=>{const g=slotGroup(x);if(x.part&&g&&!isPart(g,x.lay))out.push({x,g,t})}));return out}
+function fixParts(){badPartSlots().forEach(({x,g})=>{const parts=g.layouts.filter(y=>isPart(g,y.id));if(!parts.length)return; // Reihenfolge wie angelegt: erste Teilgruppe = A
+  const m=partLay(g,x.part); x.lay=(m&&isPart(g,m.id)?m:parts[String(x.part).toUpperCase()==='B'?Math.min(1,parts.length-1):0]).id});save();renderWeek()}
 function partLay(g,part){const P=String(part).toLowerCase();return g.layouts.find(y=>{const t=tok(y.name);return t.includes(P)&&(t.includes('gruppe')||t.includes('teilgruppe')||t.length<=3)})||g.layouts.find(y=>tok(y.name).includes(P))||null}
 function matchSlots(t){
   t.slots.forEach(x=>{
@@ -1331,11 +1347,11 @@ function laySave(){
     const copy=$('#layCopy')&&$('#layCopy').checked;
     const lay={id:uid(),name,seats:{},board:copy&&cur.board?{...cur.board}:null,fixtures:copy?(cur.fixtures||[]).map(f=>({...f,id:uid()})):[]};
     let i=0; ids.forEach(id=>{lay.seats[id]=copy&&cur.seats[id]?{...cur.seats[id]}:null});
-    lay.part=$('#layPart').checked||PART_RE.test(name);
+    if($('#layPart').checked) lay.part=true; // sonst entscheidet Name bzw. Anzahl der Kinder
     g.layouts.push(lay); g.layoutId=lay.id;
     ids.forEach(id=>{if(!lay.seats[id]){lay.seats[id]=freeSlot(g)}});
   } else {
-    cur.name=name; cur.part=$('#layPart').checked;
+    cur.name=name; const pc=$('#layPart').checked; if(pc!==isPart(g,cur.id)) cur.part=pc;
     Object.keys(cur.seats).forEach(id=>{if(!ids.includes(id))delete cur.seats[id]});
     ids.forEach(id=>{if(!cur.seats[id])cur.seats[id]=freeSlot(g)});
   }
@@ -1680,7 +1696,7 @@ const DO={
   gbWordKid(){gbWord(false)}, gbWordAll(){gbWord(true)},
   catAdd(){GB(G()).cats.push({id:uid(),name:'Neue Kategorie',w:0});save();renderGrades()},
   noteClose, noteDel(){const l=L(),e=l&&entry(l,UI.noteSid,false);if(e){delete e.note;save()}noteClose()},
-  ldStart, ldClose, ldNew(){UI.ldNew=true;ldRender()},
+  ttFixParts:fixParts, ldStart, ldClose, ldNew(){UI.ldNew=true;ldRender()},
   lessonEnd(){const l=L();if(!l)return;l.done=true;l.doneAt=new Date().toISOString();pending.forEach(x=>clearTimeout(x.timer));pending.clear();save();S.ui.view='week';renderAll();window.scrollTo(0,0)},
   lessonReopen(){const l=L();if(!l)return;l.done=false;save();renderPlan()},
   csvProto, sendMac:captureJSON, sendPhone:rosterJSON,
