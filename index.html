@@ -276,7 +276,7 @@ table.gb td.gc.k-u{background:color-mix(in oklab,var(--bad) 12%,var(--surface))}
 .gwbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:12px}
 .gwbox summary{cursor:pointer;padding:12px 14px;font-weight:700;font-family:var(--font-display)}
 .gwin{padding:0 14px 14px;display:flex;flex-direction:column;gap:10px}
-.gw{display:grid;grid-template-columns:repeat(7,minmax(118px,1fr));gap:10px;align-items:end;overflow-x:auto;padding-bottom:4px}
+.gw{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px;align-items:end;padding-bottom:4px}
 .gcol{display:flex;flex-direction:column;gap:4px;min-width:0}
 .glab{display:flex;flex-direction:column;justify-content:flex-end;height:2.9em;font-size:12px;font-weight:700;line-height:1.2;color:var(--fg)}
 .glab small{font-weight:400;color:var(--muted);font-size:11px}
@@ -332,7 +332,7 @@ td.arch{color:var(--muted);font-style:italic}
 
 </head><body>
 <header class="bar">
-  <div class="brand"><span class="logo" aria-hidden="true">AT</span><span class="brand-t"><b>AT-Tool</b><small>Sitzplan &amp; Mitarbeit · <span id="appVer">v27</span></small></span></div>
+  <div class="brand"><span class="logo" aria-hidden="true">AT</span><span class="brand-t"><b>AT-Tool</b><small>Sitzplan &amp; Mitarbeit · <span id="appVer">v30</span></small></span></div>
   <label class="fld"><span>Lerngruppe</span><select id="grp"></select></label>
   <div class="lesson" id="lessonBox"></div>
   <nav class="tabs" role="tablist" aria-label="Ansicht">
@@ -404,7 +404,7 @@ const KMAX=Object.fromEntries(KINDS.filter(K=>K.max).map(K=>[K.k,K.max])); // �
 const noGrade=(l,sid)=>!!(l&&l.gOv&&l.gOv[sid]==='x');
 const cnt=(e,k)=>e&&e.c&&e.c[k]||0;
 // Verspätung: e.late = Minuten (>0) oder -1 (verspätet, Minuten unbekannt). Notiz: e.note
-const APP_VERSION='27';
+const APP_VERSION='30';
 const isLate=e=>!!e&&(e.late>0||e.late===-1);
 const lateTxt=e=>e.late>0?`+${e.late}′`:'verspätet';
 const hasNote=e=>!!e&&!!(e.note&&e.note.trim());
@@ -521,8 +521,14 @@ const inLesson=(l,st)=>!l.members||l.members.includes(st.id)||!!l.e[st.id];
 function syncLesson(g){const l=L(g),lay=LY(g);if(l&&l.layout===lay.id&&l.date===todayStr())l.members=members(g).map(s=>s.id)}
 function entry(l,sid,create=true){let e=l.e[sid];if(!e&&create)e=l.e[sid]={st:'p',late:0,c:{m:0,f:0,w:0,a:0,s:0,h:0,k:0}};return e}
 // Aufforderung steigert sich: 1. −15 %, 2. −20 %, 3. −25 %, jede weitere +5 %
-const contrib=(K,n)=>K.k==='a'?-(10*n+2.5*n*(n+1)):n*K.w;
-const score=e=>e?KINDS.reduce((t,K)=>t+contrib(K,cnt(e,K.k)),0):0;
+// Sitzfarbe: eigene Gewichtung in Prozent (unabhängig von der Note), unter „Daten“ einstellbar
+const SEATDEF=Object.assign(Object.fromEntries(KINDS.map(K=>[K.k,Math.abs(K.w)])),{late:15});
+const SW=k=>{const v=S&&S.settings&&S.settings.seat&&S.settings.seat[k];return v!=null&&isFinite(v)?v:SEATDEF[k]};
+// Aufforderung steigert sich: 1. Mal Grundwert, jedes weitere Mal 5 Prozentpunkte mehr
+const contrib=(K,n)=>{const w=SW(K.k);return K.w>0?n*w:K.k==='a'?-(n*w+5*n*(n-1)/2):-n*w};
+// Verspätung färbt je angefangene 5 Min. um den eingestellten Wert Richtung Rot, über 20 Min. voll rot
+const lateColor=e=>!isLate(e)?0:e.late>20?-1000:-lateSteps(e)*SW('late');
+const score=e=>e?KINDS.reduce((t,K)=>t+contrib(K,cnt(e,K.k)),0)+lateColor(e):0;
 /* Notenvorschlag pro Stunde: Ausgangsnote, jeder Eintrag verschiebt um seine Gewichtung (in Notenstufen).
    Störungen zählen nicht; Verspätung senkt die Note (siehe lateSteps). */
 const GK=[{k:'m',dir:-1,label:'Meldung',verb:'verbessert'},{k:'f',dir:-1,label:'Fachsprache',verb:'verbessert'},{k:'w',dir:-1,label:'arbeitet mit',verb:'verbessert'},
@@ -564,6 +570,13 @@ function gradeForm(g){const gr=GR(g);
     </div>
     <p class="muted" style="font-size:13px;margin:0">Beispiel: Ausgangsnote 3, zwei Meldungen à 0,5 und einmal Fachsprache à 1 ergibt 1. Eine Notenstufe entspricht 3 Punkten.</p>
     ${S.groups.length>1?'<div class="row2"><button class="btn" data-do="gradeAll">Für alle Lerngruppen übernehmen</button></div>':''}`}
+function seatForm(){
+  const col=(lab,sub,ctrl)=>`<label class="gcol"><span class="glab">${lab}<small>${sub}</small></span>${ctrl}</label>`;
+  return `<p class="muted" style="font-size:14px;margin:0">Die Sitzfarbe ist nur eine Orientierung im Unterricht und unabhängig von der Note. Jeder Eintrag färbt die Kachel um die angegebenen Prozent Richtung Grün oder Rot. Ab 100 % ist sie voll gefärbt. Positive und negative Einträge heben sich gegenseitig auf. 0 bedeutet: keine Wirkung auf die Farbe. Gilt für alle Lerngruppen.</p>
+    <div class="gw">${KINDS.map(K=>col(K.label.replace(' zur Mitarbeit',''),K.k==='a'?'1. Mal, danach je +5':K.w>0?'Richtung Grün':'Richtung Rot',`<span class="gwi"><input type="text" inputmode="decimal" data-sw="${K.k}" value="${fmtNum(SW(K.k))}"><span>%</span></span>`)).join('')}
+      ${col('verspätet','je angefangene 5 Min.',`<span class="gwi"><input type="text" inputmode="decimal" data-sw="late" value="${fmtNum(SW('late'))}"><span>%</span></span>`)}</div>
+    <p class="muted" style="font-size:13px;margin:0">Verspätung: 1–5 Min. einmal der Wert, 6–10 Min. zweimal, 11–15 dreimal, 16–20 viermal, über 20 Min. ist die Kachel voll rot. Ohne Minutenangabe zählt sie wie 1–5 Min.</p>
+    <div class="row2"><button class="btn" data-do="seatReset">Standardwerte</button></div>`}
 const numIn=v=>{const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?n:0};
 const fmtNum=n=>String(n).replace('.',',');
 function lateMinutes(l){
@@ -720,7 +733,7 @@ function renderList(){
 
 /* ---------- Abgleich iPhone → MacBook ---------- */
 function rosterJSON(){
-  const data={app:'AT-Tool',kind:'roster',exported:new Date().toISOString(),
+  const data={app:'AT-Tool',kind:'roster',exported:new Date().toISOString(),seat:S.settings.seat||null,
     groups:S.groups.map(g=>({id:g.id,name:g.name,students:g.students,layouts:g.layouts,layoutId:g.layoutId,grade:g.grade}))};
   openExport(`AT-Tool_Klassenliste_fuer_iPhone_${todayStr()}.json`,JSON.stringify(data),'application/json');
 }
@@ -1287,10 +1300,10 @@ function renderPlan(){
 function renderLegend(){
   const item=(sym,cls,t,sub)=>`<div class="litem"><span class="lsym ${cls}">${sym}</span><span class="ltxt">${t}${sub?`<small>${sub}</small>`:''}</span></div>`;
   $('#legend').innerHTML=`<h3>Legende</h3><div class="lgrid">`+
-    KINDS.map(K=>item(ICON[K.k],K.w>0?'pos':'neg',K.label,K.k==='w'?`Sitzfarbe <span class="p">+15 %</span>, höchstens 2× pro Stunde, z. B. arbeitet selbstständig am Platz`:K.k==='a'?`Sitzfarbe <span class="n">−15 %</span>, 2. Mal <span class="n">−20 %</span>, 3. Mal <span class="n">−25 %</span> usw. Richtung Rot`:`Sitzfarbe <span class="${K.w>0?'p':'n'}">${K.w>0?'+':'−'}${Math.abs(K.w)} %</span> ${K.w>0?'Richtung Grün':'Richtung Rot'}`)).join('')+
+    KINDS.map(K=>item(ICON[K.k],K.w>0?'pos':'neg',K.label,K.k==='w'?`Sitzfarbe <span class="p">+${fmtNum(SW('w'))} %</span>, höchstens 2× pro Stunde, z. B. arbeitet selbstständig am Platz`:K.k==='a'?`Sitzfarbe <span class="n">−${fmtNum(SW('a'))} %</span>, 2. Mal <span class="n">−${fmtNum(SW('a')+5)} %</span>, 3. Mal <span class="n">−${fmtNum(SW('a')+10)} %</span> usw. Richtung Rot`:`Sitzfarbe <span class="${K.w>0?'p':'n'}">${K.w>0?'+':'−'}${fmtNum(SW(K.k))} %</span> ${K.w>0?'Richtung Grün':'Richtung Rot'}`)).join('')+
     `<div class="litem"><span class="lsym nob">o.&nbsp;B.</span><span class="ltxt">keine Bewertung<small><b>Rechtsklick auf den Namen</b> (MacBook) oder lange drücken (iPhone), z. B. wenn jemand fehlt. Die Stunde zählt dann nicht für die Note. Nochmal schaltet es aus.</small></span></div>`+
     item(ICO_LATE,'ico','verspätet','Minuten werden ab Stundenbeginn berechnet; nochmal tippen hebt es auf')+
-    item('+12′','late','Verspätung in Minuten','senkt die Stundennote: je angefangene 5 Min. eine Tendenz, über 20 Min. = 6')+
+    item('+12′','late','Verspätung in Minuten',`Sitzfarbe <span class="n">−${fmtNum(SW('late'))} %</span> je angefangene 5 Min., über 20 Min. voll rot; senkt die Stundennote: je angefangene 5 Min. eine Tendenz, über 20 Min. = 6`)+
     item(ICO_NOTE,'ico','Notiz','öffnet ein Textfeld; ausgefüllt, wenn eine Notiz da ist')+
     item('','fx-window','Fenster','im Bearbeiten-Modus hinzufügen und ziehen')+
     item('','fx-door','Tür','im Bearbeiten-Modus hinzufügen und ziehen')+
@@ -1517,7 +1530,7 @@ function stats(g,ls){
     return r;
   });
 }
-const COLS_RANGE=[['name','Name'],['n','Stunden'],['lc','Verspätet'],['lm','Verspätung Min.'],['m','Meldungen'],['f','Fachsprache'],['w','arbeitet mit'],['a','Aufforderungen'],['s','Störungen'],['h','Hefter vergessen'],['k','HA vergessen']];
+const COLS_RANGE=[['name','Name'],['n','Stunden'],['m','Meldungen'],['f','Fachsprache'],['w','arbeitet mit'],['a','Aufforderungen'],['s','Störungen'],['h','Hefter vergessen'],['k','HA vergessen']];
 const COLS_SINGLE=[['name','Name'],['status','Verspätung'],['gv','Note'],['note','Notiz'],['m','Meldungen'],['f','Fachsprache'],['w','arbeitet mit'],['a','Aufforderungen'],['s','Störungen'],['h','Hefter vergessen'],['k','HA vergessen']];
 function sortedRows(rows){
   const {k,dir}=UI.sort;
@@ -1593,7 +1606,7 @@ function renderFeedback(v,g){
 function fbWord(){
   const g=G(), list=fbList(g);
   const body=list.map((x,i)=>{const [h,...rest]=x.txt.split('\n');
-    return `<div${i?' style="page-break-before:always"':''}><h2>${esc(h)}</h2>${rest.join('\n').trim().split(/\n\n+/).map(par=>{const ls_=par.split('\n');
+    return `<div>${i?'<br clear="all" style="page-break-before:always">':''}<h2${i?' style="page-break-before:always"':''}>${esc(h)}</h2>${rest.join('\n').trim().split(/\n\n+/).map(par=>{const ls_=par.split('\n');
       const b=ls_.filter(y=>y.startsWith('• ')), o=ls_.filter(y=>!y.startsWith('• '));
       return o.map(y=>`<p><b>${esc(y)}</b></p>`).join('')+(b.length?`<ul>${b.map(y=>`<li>${esc(y.slice(2))}</li>`).join('')}</ul>`:'')}).join('')}</div>`}).join('');
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Rückmeldungen</title>
@@ -1743,6 +1756,7 @@ function renderData(){
         <div class="row2"><button class="btn primary" data-do="sendPhone">Klassenliste an iPhone senden</button><button class="btn" data-do="importPick">Datei vom iPhone importieren</button></div>`}
     </div>
     ${g&&!isCompact()?`<div class="card"><h2>Notenvorschlag · ${esc(g.name)}</h2>${gradeForm(g)}</div>`:''}
+    ${!isCompact()?`<div class="card"><h2>Sitzfarbe</h2>${seatForm()}</div>`:''}
     <div class="card"><h2>Einstellungen</h2>
       <p class="muted" style="font-size:13px;margin:0">Programmversion <b>${APP_VERSION}</b></p>
       <label class="fld"><span>Erfassungsansicht</span><select id="viewSel"><option value="auto"${(S.settings.view||'auto')==='auto'?' selected':''}>Automatisch (iPhone: Namensliste)</option><option value="list"${S.settings.view==='list'?' selected':''}>Immer Namensliste</option><option value="plan"${S.settings.view==='plan'?' selected':''}>Immer Sitzplan</option></select></label>
@@ -1759,7 +1773,7 @@ const CONFIRM={
   delLesson(id){const g=G();g.lessons=g.lessons.filter(l=>l.id!==id);if(S.active[g.id]===id)delete S.active[g.id];save();renderAll()},
   doImport(){const d=UI.importData;
     if(d.kind==='roster'){const old=S.groups;S.groups=d.groups.map(x=>{const o=old.find(y=>y.id===x.id);return Object.assign({},x,{lessons:o?o.lessons:[],units:[]})});
-      S.groups.forEach(ensureLayouts);S.active={};S.ui.groupId=S.groups[0]?S.groups[0].id:null;S.ui.view='plan';UI.importData=null;pending.clear();save();renderAll();return}
+      S.groups.forEach(ensureLayouts);if(d.seat)S.settings.seat=d.seat;else delete S.settings.seat;S.active={};S.ui.groupId=S.groups[0]?S.groups[0].id:null;S.ui.view='plan';UI.importData=null;pending.clear();save();renderAll();return}
     S.groups=d.groups;S.groups.forEach(ensureLayouts);if(d.timetables)S.timetables=d.timetables;if(d.periods)S.periods=d.periods;if(d.free)S.free=d.free;S.changes=Array.isArray(d.changes)?d.changes:[];S.settings=Object.assign({cd:3},d.settings||{});S.active={};S.ui.groupId=S.groups[0]?S.groups[0].id:null;UI.importData=null;pending.clear();save();renderAll()},
   arrange(){const g=G(),lay=LY(g);const ty=topY(g);members(g).forEach((s,i)=>{lay.seats[s.id]=gridPos(i,ty)});save();renderPlan()},
   unitDel(){const g=G(),u=curUnit(g);if(!u)return;g.lessons.forEach(l=>{if(l.plan&&l.plan.u===u.id)delete l.plan});g.units=UN(g).filter(x=>x.id!==u.id);g.unitId=g.units[0]?g.units[0].id:null;save();renderUnit()},
@@ -1820,6 +1834,7 @@ const DO={
     const i=f.u.items.indexOf(f.it); const ins={id:uid(),topic:l.topic}; f.it.topic=UI.shift.t;
     f.u.items.splice(i,0,ins); l.plan={u:f.u.id,i:ins.id}; UI.shift=null; save(); renderDoc()},
   fbOpen(){UI.fb=true;renderTable();window.scrollTo(0,0)}, fbClose(){UI.fb=false;renderTable()}, fbWord, fbCsv,
+  seatReset(){delete S.settings.seat;save();renderData()},
   showGrades(){const g=G(),l=L(g);if(!l)return;UI.mode='single';UI.lessonSel=l.id;UI.sort={k:'name',dir:1};S.ui.view='table';save();renderAll();window.scrollTo(0,0)},
   gradeAll(){const src=GR(G());S.groups.forEach(x=>{x.grade=JSON.parse(JSON.stringify(src))});save();renderData()},
   rotOpen(){rotSheet()}, rotFwd(){rotate(1);rotSheet()}, rotBack(){rotate(-1);rotSheet()},
@@ -1900,6 +1915,7 @@ document.addEventListener('change',ev=>{
   else if(t.id==='viewSel'){S.settings.view=t.value;save();renderAll()}
   else if(t.id==='gScale'){GR(G()).scale=t.value;save();if(S.ui.view==='table')renderTable();else if(S.ui.view==='grades')renderGrades();else renderData()}
   else if(t.id==='gBase'){const v=Math.max(0.67,Math.min(6,+t.value));GR(G()).base=v;save();if(S.ui.view==='table')renderTable()}
+  else if(t.dataset.sw){const v=Math.max(0,Math.min(100,Math.abs(numIn(t.value))));S.settings.seat=Object.assign({},S.settings.seat,{[t.dataset.sw]:v});t.value=fmtNum(v);save()}
   else if(t.dataset.gw){const v=Math.max(0,Math.abs(numIn(t.value)));GR(G()).w[t.dataset.gw]=v;t.value=fmtNum(v);save();if(S.ui.view==='table')renderTable()}
   else if(t.dataset.rename){const x=S.groups.find(g=>g.id===t.dataset.rename);if(x&&t.value.trim()){x.name=t.value.trim();save();renderBar()}}
   else if(t.id==='importFile'&&t.files[0]){
