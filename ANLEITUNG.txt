@@ -1,5 +1,5 @@
-AT-Tool – Offline-Version für MacBook und iPhone
-================================================
+Schul-Tool – Offline-Version für MacBook und iPhone
+===================================================
 
 Inhalt: index.html, sw.js, manifest.webmanifest, icon-180.png, icon-512.png
 
@@ -24,8 +24,14 @@ Inhalt: index.html, sw.js, manifest.webmanifest, icon-180.png, icon-512.png
    Mac: Daten > "Datei vom iPhone importieren". Einträge werden zur passenden Stunde dazugezählt.
    Dieselbe Datei zweimal importieren zählt nichts doppelt.
 
-5) Sichern
-   Mac: Daten > "Sicherung exportieren" > "Datei speichern", z. B. nach iCloud Drive. Einmal pro Woche.
+5) Sichern (nur auf dem MacBook, nichts geht ins Internet)
+   Mac: Daten > "Auf dem MacBook sichern". Die Datei
+   "Schul-Tool_Sicherung_JJJJ-MM-TT_HHMM.json" liegt sofort im Ordner "Downloads".
+   Oben im Tool erscheint eine Erinnerung, wenn die letzte Sicherung zu lange her ist
+   (einstellbar unter Daten > "An Sicherung erinnern").
+   Sicherungen ab und zu in einen eigenen Ordner verschieben, z. B. auf einen USB-Stick.
+   Wiederherstellen: Daten > "Sicherung wiederherstellen / Datei importieren" > Datei wählen
+   > zweimal "Daten ersetzen".
 
 6) Beispieldaten
    Die Gruppe "Beispiel 9b (Beispieldaten)" unter Daten > Lerngruppen löschen.

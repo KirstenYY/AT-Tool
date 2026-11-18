@@ -3,13 +3,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="AT-Tool">
+<meta name="apple-mobile-web-app-title" content="Schul-Tool">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <script>window.AT_STANDALONE=true</script>
-<title>AT-Tool Unterricht</title>
+<title>Schul-Tool</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -293,6 +293,7 @@ table.gb td.gc.k-u{background:color-mix(in oklab,var(--bad) 12%,var(--surface))}
 .fbc{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
 .fbh{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}.fbh .muted{font-size:13px;margin-right:auto}
 .fbc textarea{width:100%;box-sizing:border-box;font:inherit;font-size:14px;line-height:1.45;resize:vertical}
+.bkbar{margin:10px 16px 0}
 .tctl{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;margin-bottom:12px}
 .seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
 .seg button{border:0;background:transparent;min-height:32px;padding:0 12px;border-radius:7px;font-weight:700;color:var(--muted)}
@@ -332,7 +333,7 @@ td.arch{color:var(--muted);font-style:italic}
 
 </head><body>
 <header class="bar">
-  <div class="brand"><span class="logo" aria-hidden="true">AT</span><span class="brand-t"><b>AT-Tool</b><small>Sitzplan &amp; Mitarbeit · <span id="appVer">v30</span></small></span></div>
+  <div class="brand"><span class="logo" aria-hidden="true">ST</span><span class="brand-t"><b>Schul-Tool</b><small>Sitzplan &amp; Mitarbeit · <span id="appVer">v31</span></small></span></div>
   <label class="fld"><span>Lerngruppe</span><select id="grp"></select></label>
   <div class="lesson" id="lessonBox"></div>
   <nav class="tabs" role="tablist" aria-label="Ansicht">
@@ -345,6 +346,7 @@ td.arch{color:var(--muted);font-style:italic}
   </nav>
 </header>
 
+<div class="banner bkbar" id="bkBar" hidden></div>
 <main>
   <section id="vPlan">
     <div id="planTop"></div>
@@ -404,7 +406,7 @@ const KMAX=Object.fromEntries(KINDS.filter(K=>K.max).map(K=>[K.k,K.max])); // �
 const noGrade=(l,sid)=>!!(l&&l.gOv&&l.gOv[sid]==='x');
 const cnt=(e,k)=>e&&e.c&&e.c[k]||0;
 // Verspätung: e.late = Minuten (>0) oder -1 (verspätet, Minuten unbekannt). Notiz: e.note
-const APP_VERSION='30';
+const APP_VERSION='31';
 const isLate=e=>!!e&&(e.late>0||e.late===-1);
 const lateTxt=e=>e.late>0?`+${e.late}′`:'verspätet';
 const hasNote=e=>!!e&&!!(e.note&&e.note.trim());
@@ -707,7 +709,7 @@ function csvProto(){
     const nt=es.filter(st=>hasNote(l.e[st.id])).map(st=>`${st.name}: ${l.e[st.id].note.trim()}`).join(' | ');
     rows.push([fmtDate(l.date),wd(l.date),l.start,layName(g,l.layout),f?f.u.title:'',l.topic||'',l.doc||'',l.hw||'',lt,nt]);
   });
-  openExport(`AT_${slug(g.name)}_Stundenprotokoll_${todayStr()}.csv`,csv(rows),'text/csv');
+  openExport(`Schul-Tool_${slug(g.name)}_Stundenprotokoll_${todayStr()}.csv`,csv(rows),'text/csv');
 }
 
 /* ---------- iPhone: Namensliste ---------- */
@@ -733,15 +735,15 @@ function renderList(){
 
 /* ---------- Abgleich iPhone → MacBook ---------- */
 function rosterJSON(){
-  const data={app:'AT-Tool',kind:'roster',exported:new Date().toISOString(),seat:S.settings.seat||null,
+  const data={app:'Schul-Tool',kind:'roster',exported:new Date().toISOString(),seat:S.settings.seat||null,
     groups:S.groups.map(g=>({id:g.id,name:g.name,students:g.students,layouts:g.layouts,layoutId:g.layoutId,grade:g.grade}))};
-  openExport(`AT-Tool_Klassenliste_fuer_iPhone_${todayStr()}.json`,JSON.stringify(data),'application/json');
+  openExport(`Schul-Tool_Klassenliste_fuer_iPhone_${todayStr()}.json`,JSON.stringify(data),'application/json');
 }
 function captureJSON(){
   const cut=new Date();cut.setDate(cut.getDate()-60);const c=dstr(cut);
   const groups=S.groups.map(g=>({id:g.id,name:g.name,students:g.students.map(x=>({id:x.id,name:x.name})),layouts:g.layouts.map(x=>({id:x.id,name:x.name})),lessons:g.lessons.filter(l=>l.date>=c&&(Object.keys(l.e).length||(l.gOv&&Object.keys(l.gOv).length))).map(l=>({id:l.id,date:l.date,start:l.start,layout:l.layout,members:l.members,e:l.e,gOv:l.gOv||{}}))})).filter(g=>g.lessons.length);
-  const data={app:'AT-Tool',kind:'capture',exported:new Date().toISOString(),groups};
-  const t=new Date();openExport(`AT-Tool_iPhone_${todayStr()}_${pad(t.getHours())}${pad(t.getMinutes())}.json`,JSON.stringify(data),'application/json');
+  const data={app:'Schul-Tool',kind:'capture',exported:new Date().toISOString(),groups};
+  const t=new Date();openExport(`Schul-Tool_iPhone_${todayStr()}_${pad(t.getHours())}${pad(t.getMinutes())}.json`,JSON.stringify(data),'application/json');
 }
 const minOf=t=>{const [h,m]=(t||'0:0').split(':').map(Number);return h*60+m};
 // Einträge vom iPhone dazuzählen. Pro iPhone-Stunde merkt sich das MacBook, was schon übernommen wurde,
@@ -1151,7 +1153,7 @@ function gbCsv(){
       b.cats.forEach(c=>{const x=r.cats.find(y=>y.c.id===c.id);if(c.auto){row.push(A(x.val));return}items.filter(it=>it.part==='a'&&it.cat===c.id).forEach(it=>row.push(cv(it)));row.push(A(x.val))});
       row.push(A(r.A),A(r.H),L(r.fin));return row}))}
   const head=[['Lerngruppe',g.name],['Zeitraum',hj==='y'?'Schuljahr':hj+'. Halbjahr'],['Gewichtung',`schriftlich ${b.wW} %, AT ${100-b.wW} % (${b.cats.map(c=>c.name+' '+c.w+' %').join(', ')})`],[]];
-  openExport(`AT_${slug(g.name)}_Noten_${hj==='y'?'Schuljahr':hj+'HJ'}_${todayStr()}.csv`,csv(head.concat(rows)),'text/csv');
+  openExport(`Schul-Tool_${slug(g.name)}_Noten_${hj==='y'?'Schuljahr':hj+'HJ'}_${todayStr()}.csv`,csv(head.concat(rows)),'text/csv');
 }
 /* Word-Übersicht (.docx) – gebaut mit JSZip */
 function loadZip(){return new Promise((res,rej)=>{if(window.JSZip)return res(window.JSZip);const sc=document.createElement('script');
@@ -1611,12 +1613,12 @@ function fbWord(){
       return o.map(y=>`<p><b>${esc(y)}</b></p>`).join('')+(b.length?`<ul>${b.map(y=>`<li>${esc(y.slice(2))}</li>`).join('')}</ul>`:'')}).join('')}</div>`}).join('');
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Rückmeldungen</title>
 <style>body{font-family:Calibri,Arial,sans-serif;font-size:12pt}h2{font-size:14pt;margin:0 0 10pt}p{margin:10pt 0 4pt}li{margin:0 0 4pt}</style></head><body>${body}</body></html>`;
-  const name=`AT_${slug(g.name)}_Rueckmeldungen_${UI.from||''}_${UI.to||''}.doc`;
+  const name=`Schul-Tool_${slug(g.name)}_Rueckmeldungen_${UI.from||''}_${UI.to||''}.doc`;
   openExport(name,html,'application/msword',false,new Blob(['﻿'+html],{type:'application/msword'}));
 }
 function fbCsv(){
   const g=G(), list=fbList(g);
-  openExport(`AT_${slug(g.name)}_Rueckmeldungen_${UI.from||''}_${UI.to||''}.csv`,csv([['Name','Stunden','Rückmeldung'],...list.map(x=>[x.r.st.name,x.r.n,x.txt])]),'text/csv');
+  openExport(`Schul-Tool_${slug(g.name)}_Rueckmeldungen_${UI.from||''}_${UI.to||''}.csv`,csv([['Name','Stunden','Rückmeldung'],...list.map(x=>[x.r.st.name,x.r.n,x.txt])]),'text/csv');
 }
 function renderTable(){
   const v=$('#vTable'), g=G();
@@ -1663,7 +1665,7 @@ function csvTable(){
   const head=UI.mode==='single'&&ls[0]?[['Lerngruppe',g.name],['Stunde',`${fmtDate(ls[0].date)} ${ls[0].start}`],['Sitzplan',layName(g,ls[0].layout)],['Thema',ls[0].topic||''],[]]:[['Lerngruppe',g.name],['Zeitraum',`${UI.from?fmtDate(UI.from):'Anfang'} – ${UI.to?fmtDate(UI.to):'Ende'}`],['Unterricht',UI.layF?layName(g,UI.layF):'alle Stunden'],[]];
   const body=[cols.map(c=>c[1]),...rows.map(r=>cols.map(([k])=>k==='name'&&r.st.archived?r.name+' (entfernt)':k==='gv'?r.gtxt:r[k]))];
   const tag=UI.mode==='single'&&ls[0]?ls[0].date:`${UI.from||'alle'}_${UI.to||''}`;
-  openExport(`AT_${slug(g.name)}_${tag}.csv`,csv([...head,...body]),'text/csv');
+  openExport(`Schul-Tool_${slug(g.name)}_${tag}.csv`,csv([...head,...body]),'text/csv');
 }
 function csvHistory(){
   const g=G(); const rows=[['Datum','Wochentag','Beginn','Sitzplan','Thema','Name','Verspätung','Notiz','Meldungen','Fachsprache','arbeitet mit','Aufforderungen','Störungen','Hefter vergessen','Hausaufgabe vergessen']];
@@ -1674,11 +1676,30 @@ function csvHistory(){
       rows.push([fmtDate(l.date),wd(l.date),l.start,layName(g,l.layout),l.topic||'',st.name,isLate(e)?(e.late>0?e.late+' Min.':'ja'):'',e&&e.note||'',...CK.map(k=>cnt(e,k))]);
     });
   });
-  openExport(`AT_${slug(g.name)}_Verlauf_${todayStr()}.csv`,csv(rows),'text/csv');
+  openExport(`Schul-Tool_${slug(g.name)}_Verlauf_${todayStr()}.csv`,csv(rows),'text/csv');
 }
-function backupJSON(){
-  const data={app:'AT-Tool',version:1,exported:new Date().toISOString(),groups:S.groups,settings:S.settings,timetables:S.timetables,periods:S.periods,free:S.free,changes:S.changes};
-  openExport(`AT-Tool_Sicherung_${todayStr()}.json`,JSON.stringify(data,null,1),'application/json',true);
+function backupData(){return {app:'Schul-Tool',version:1,exported:new Date().toISOString(),groups:S.groups,settings:S.settings,timetables:S.timetables,periods:S.periods,free:S.free,changes:S.changes}}
+const backupName=()=>{const t=new Date();return `Schul-Tool_Sicherung_${todayStr()}_${pad(t.getHours())}${pad(t.getMinutes())}.json`};
+function backupJSON(){openExport(backupName(),JSON.stringify(backupData(),null,1),'application/json',true)}
+// Sicherung direkt auf dem MacBook speichern (landet im Ordner „Downloads“), ohne Umweg über einen Dialog
+function backupMac(){
+  const name=backupName();
+  try{const url=URL.createObjectURL(new Blob([JSON.stringify(backupData(),null,1)],{type:'application/json'}));
+    const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    S.lastBackup=new Date().toISOString();S.lastBackupName=name;save();renderAll();
+  }catch(e){backupJSON()}
+}
+const backupDays=()=>{const d=S.settings.bkDays;return d==null?7:d};
+const backupDue=()=>{if(!S.lastBackup)return true;return (Date.now()-new Date(S.lastBackup).getTime())/864e5>=backupDays()};
+function renderBackupBar(){
+  const b=$('#bkBar'); if(!b) return;
+  const has=S.groups.some(g=>g.lessons.length&&!/Beispieldaten/.test(g.name));
+  if(!has||!backupDue()||UI.bkHide){b.hidden=true;b.innerHTML='';return}
+  const last=S.lastBackup?new Date(S.lastBackup).toLocaleDateString('de-DE'):null;
+  b.hidden=false;
+  b.innerHTML=`<p><b>Zeit für eine Sicherung.</b> ${last?`Letzte Sicherung am ${last}.`:'Es gibt noch keine Sicherung.'}</p>
+    <button class="btn primary" data-do="${isCompact()?'backup':'backupMac'}">${isCompact()?'Jetzt sichern':'Jetzt auf dem MacBook sichern'}</button><button class="btn" data-do="bkLater">Später</button>`;
 }
 let EXP=null;
 function openExport(name,text,mime,isBackup,blob){
@@ -1739,10 +1760,12 @@ function renderData(){
     </div>
     <div class="card"><h2>Sichern &amp; Übertragen</h2>
       ${storageOK?'':'<div class="warnbox">Dieser Browser lässt gerade kein Speichern zu (z. B. privates Surfen). Eingaben gehen beim Schließen verloren.</div>'}
-      <p>Alle Daten liegen nur auf diesem Gerät, nicht in einer Datenbank. Eine Sicherung enthält alle Lerngruppen, Sitzpläne und Stunden.</p>
-      <p><b>Letzte Sicherung:</b> ${last?`${last.toLocaleDateString('de-DE')} (${days===0?'heute':`vor ${days} Tag${days===1?'':'en'}`})`:'noch keine'}</p>
-      ${days===null||days>=7?'<div class="warnbox">Sichere mindestens einmal pro Woche. Safari kann Webseiten-Daten löschen, wenn das Tool länger nicht geöffnet wurde.</div>':''}
-      <div class="row2"><button class="btn primary" data-do="backup">Sicherung exportieren</button><button class="btn" data-do="importPick">Datei importieren</button></div>
+      <p>Alle Daten liegen nur auf diesem Gerät, nicht in einer Datenbank und nicht im Internet. Eine Sicherung ist eine Datei mit allen Lerngruppen, Sitzplänen, Stunden, Noten, Stundenplänen und Einstellungen.</p>
+      <p><b>Letzte Sicherung:</b> ${last?`${last.toLocaleDateString('de-DE')} (${days===0?'heute':`vor ${days} Tag${days===1?'':'en'}`})${S.lastBackupName?`<br><span class="muted" style="font-size:13px">${esc(S.lastBackupName)}</span>`:''}`:'noch keine'}</p>
+      ${backupDue()?'<div class="warnbox">Safari kann Webseiten-Daten löschen, wenn das Tool länger nicht geöffnet wurde. Sichere deshalb regelmäßig.</div>':''}
+      <div class="row2">${isCompact()?'<button class="btn primary" data-do="backup">Sicherung exportieren</button>':'<button class="btn primary" data-do="backupMac">Auf dem MacBook sichern</button><button class="btn" data-do="backup">Teilen / AirDrop …</button>'}<button class="btn" data-do="importPick">Sicherung wiederherstellen / Datei importieren</button></div>
+      ${isCompact()?'':'<p class="muted" style="font-size:13px;margin:0">„Auf dem MacBook sichern“ legt die Datei sofort im Ordner <b>Downloads</b> ab, mit Datum und Uhrzeit im Namen. Ältere Sicherungen bleiben erhalten. Verschiebe sie am besten ab und zu in einen eigenen Ordner, z. B. „Schul-Tool Sicherungen“ in iCloud Drive oder auf einen USB-Stick.</p>'}
+      <label class="fld"><span>An Sicherung erinnern</span><select id="bkDays">${[[1,'jeden Tag'],[3,'nach 3 Tagen'],[7,'nach 1 Woche'],[14,'nach 2 Wochen']].map(([n,t])=>`<option value="${n}"${backupDays()===n?' selected':''}>${t}</option>`).join('')}</select></label>
       <p class="muted" style="font-size:13px;margin:0">„Datei importieren“ erkennt selbst, was die Datei enthält: Eine Sicherung ersetzt nach Rückfrage alle Daten. Ein Stundenplan oder Einträge vom iPhone werden ergänzt, ohne etwas zu ersetzen.</p>
       ${UI.importData?`<div class="warnbox"><p style="margin:0 0 8px">${UI.importData.kind==='roster'?`Klassenliste mit ${UI.importData.groups.length} Lerngruppen. Namen und Sitzpläne auf diesem Gerät werden ersetzt, bereits erfasste Stunden bleiben erhalten.`:`Datei enthält ${UI.importData.groups.length} Lerngruppen mit ${UI.importData.groups.reduce((n,x)=>n+(x.lessons||[]).length,0)} Stunden. Beim Import werden die aktuellen Daten auf diesem Gerät ersetzt.`}</p>
         <div class="row2"><button class="btn danger" data-confirm="doImport">${UI.importData.kind==='roster'?'Klassenliste übernehmen':'Daten ersetzen'}</button><button class="btn" data-do="cancelImport">Abbrechen</button></div></div>`:''}
@@ -1841,14 +1864,14 @@ const DO={
   closeEditor,
   addGroup(){const inp=$('#newGroup');const n=inp.value.trim();if(!n){inp.focus();return}
     const g={id:uid(),name:n,students:[],lessons:[]};ensureLayouts(g);S.groups.push(g);S.ui.groupId=g.id;S.ui.view='plan';UI.edit=true;save();renderAll()},
-  backup:backupJSON, csvTable, csvHistory,
+  backup:backupJSON, backupMac, bkLater(){UI.bkHide=true;renderBackupBar()}, csvTable, csvHistory,
   importPick(){$('#importFile').value='';$('#importFile').click()},
   cancelImport(){UI.importData=null;renderData()},
   expShare, expSave, expCopy,
   expClose(){$('#overlay').hidden=true;EXP=null;if(S.ui.view==='data')renderData()}
 };
 
-function renderAll(){renderBar();if(S.ui.view==='plan')renderPlan();if(S.ui.view==='unit')renderUnit();if(S.ui.view==='week')renderWeek();if(S.ui.view==='table')renderTable();if(S.ui.view==='grades')renderGrades();if(S.ui.view==='data')renderData()}
+function renderAll(){renderBar();renderBackupBar();if(S.ui.view==='plan')renderPlan();if(S.ui.view==='unit')renderUnit();if(S.ui.view==='week')renderWeek();if(S.ui.view==='table')renderTable();if(S.ui.view==='grades')renderGrades();if(S.ui.view==='data')renderData()}
 
 /* ---------- Ereignisse ---------- */
 document.addEventListener('click',ev=>{
@@ -1910,6 +1933,7 @@ document.addEventListener('change',ev=>{
   else if(t.id==='uSel'){G().unitId=t.value;save();renderUnit()}
   else if(t.id==='tLay'){UI.layF=t.value||null;renderTable()}
   else if(t.id==='laySel'){const g=G();g.layoutId=t.value;const l=L(g);if(l){l.layout=t.value;l.members=members(g).map(s=>s.id)}pending.clear();$('#sheet').hidden=true;save();renderPlan()}
+  else if(t.id==='bkDays'){S.settings.bkDays=+t.value;save();renderAll()}
   else if(t.id==='fbSie'){S.settings.fbSie=t.value==='1';save();renderTable()}
   else if(t.id==='cdSel'){S.settings.cd=+t.value;save()}
   else if(t.id==='viewSel'){S.settings.view=t.value;save();renderAll()}
@@ -1920,7 +1944,7 @@ document.addEventListener('change',ev=>{
   else if(t.dataset.rename){const x=S.groups.find(g=>g.id===t.dataset.rename);if(x&&t.value.trim()){x.name=t.value.trim();save();renderBar()}}
   else if(t.id==='importFile'&&t.files[0]){
     const r=new FileReader();
-    r.onload=()=>{let d=null;try{d=JSON.parse(r.result);if(d&&d.kind==='timetable'){importTimetable(d);return}if(!d||!Array.isArray(d.groups))throw 0}catch(e){UI.importData=null;alertBox('Die Datei ist keine gültige AT-Tool-Datei.');renderData();return}
+    r.onload=()=>{let d=null;try{d=JSON.parse(r.result);if(d&&d.kind==='timetable'){importTimetable(d);return}if(!d||!Array.isArray(d.groups))throw 0}catch(e){UI.importData=null;alertBox('Die Datei ist keine gültige Schul-Tool-Datei.');renderData();return}
       if(d.kind==='capture'){UI.importData=null;importCapture(d);return}
       UI.importData=d;renderData()};
     r.readAsText(t.files[0]);
