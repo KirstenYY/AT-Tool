@@ -333,7 +333,7 @@ td.arch{color:var(--muted);font-style:italic}
 
 </head><body>
 <header class="bar">
-  <div class="brand"><span class="logo" aria-hidden="true">ST</span><span class="brand-t"><b>Schul-Tool</b><small>Sitzplan &amp; Mitarbeit · <span id="appVer">v31</span></small></span></div>
+  <div class="brand"><span class="logo" aria-hidden="true">ST</span><span class="brand-t"><b>Schul-Tool</b><small>Sitzplan &amp; Mitarbeit · <span id="appVer">v32</span></small></span></div>
   <label class="fld"><span>Lerngruppe</span><select id="grp"></select></label>
   <div class="lesson" id="lessonBox"></div>
   <nav class="tabs" role="tablist" aria-label="Ansicht">
@@ -406,7 +406,7 @@ const KMAX=Object.fromEntries(KINDS.filter(K=>K.max).map(K=>[K.k,K.max])); // �
 const noGrade=(l,sid)=>!!(l&&l.gOv&&l.gOv[sid]==='x');
 const cnt=(e,k)=>e&&e.c&&e.c[k]||0;
 // Verspätung: e.late = Minuten (>0) oder -1 (verspätet, Minuten unbekannt). Notiz: e.note
-const APP_VERSION='31';
+const APP_VERSION='32';
 const isLate=e=>!!e&&(e.late>0||e.late===-1);
 const lateTxt=e=>e.late>0?`+${e.late}′`:'verspätet';
 const hasNote=e=>!!e&&!!(e.note&&e.note.trim());
@@ -1346,7 +1346,7 @@ function renderPlanTop(){
         ${l?`<div class="planbar"><span class="stat">${st.length} Kinder · <b>${lt}</b> verspätet · <b>${nn}</b> Notizen</span></div>`:''}`;}
     box.innerHTML=h; return;
   }
-  if(g&&l&&l.done&&!UI.edit) h+=`<div class="banner done"><p><b>Stunde beendet</b>${l.doneAt?' am '+new Date(l.doneAt).toLocaleDateString('de-DE')+', '+new Date(l.doneAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr':''}. Einträge sind gesperrt.</p><button class="btn" data-do="lessonReopen">Wieder bearbeiten</button><button class="btn primary" data-do="newLesson">Nächste Stunde</button></div>`;
+  if(g&&l&&l.done&&!UI.edit) h+=`<div class="banner done"><p><b>Stunde vom ${wd(l.date)} ${fmtDate(l.date)} ist beendet.</b> Einträge sind gesperrt.</p><button class="btn" data-do="lessonReopen">Wieder bearbeiten</button><button class="btn primary" data-do="newLesson">Nächste Stunde</button></div>`;
   else if(g&&l&&l.date!==todayStr()&&!UI.edit) h+=`<div class="banner"><p>Du bearbeitest die Stunde vom <b>${wd(l.date)} ${fmtDate(l.date)}</b>. Eingaben werden dort gespeichert.</p><button class="btn primary" data-do="newLesson">Neue Stunde für heute</button></div>`;
   if(g&&!l&&!UI.edit&&live(g).length) h+=`<div class="banner"><p>Starte eine Stunde, um Eingaben zu erfassen.</p><button class="btn primary" data-do="newLesson">Stunde starten</button></div>`;
   let stat='';
